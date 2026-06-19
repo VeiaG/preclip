@@ -30,6 +30,9 @@ interface VideoKitAPI {
   clearThumbnailCache: () => Promise<void>
   getThumbnailCacheSize: () => Promise<number>
 
+  deleteFolder: (folderPath: string) => Promise<void>
+  deleteFiles: (filePaths: string[]) => Promise<void>
+
   mediaPort: () => Promise<number>
 }
 

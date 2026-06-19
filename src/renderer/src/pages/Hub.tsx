@@ -1,7 +1,24 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Gamepad2, FolderOpen, RefreshCw, Settings, ChevronRight } from 'lucide-react'
+import { Gamepad2, FolderOpen, RefreshCw, Settings, ChevronRight, Trash2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
 import { getGameGradient, getGameInitials } from '@/lib/gameCovers'
 import type { AppSettings } from '../../../shared/types'
@@ -24,11 +41,19 @@ function formatSize(bytes: number) {
 function GameCard({
   game,
   mediaPort,
+  selected,
+  selectionMode,
   onClick,
+  onSelect,
+  onOpenFolder,
 }: {
   game: GameFolder
   mediaPort: number
-  onClick: () => void
+  selected: boolean
+  selectionMode: boolean
+  onClick: (e: React.MouseEvent) => void
+  onSelect: () => void
+  onOpenFolder: () => void
 }) {
   const [coverUrl, setCoverUrl] = useState<string | null>(null)
   const [from, to] = getGameGradient(game.name)
@@ -46,11 +71,15 @@ function GameCard({
   return (
     <button
       onClick={onClick}
-      className="group text-left rounded-xl overflow-hidden border bg-card hover:ring-2 ring-primary/40 hover:border-primary/40 transition-all duration-200 hover:shadow-lg hover:shadow-black/10"
+      className={cn(
+        'group w-full text-left rounded-xl overflow-hidden border bg-card transition-all duration-200 hover:shadow-lg hover:shadow-black/10 relative',
+        selected
+          ? 'ring-2 ring-primary border-primary'
+          : 'hover:ring-2 ring-primary/40 hover:border-primary/40',
+      )}
     >
-      {/* Cover area — matches capsule_616x353 ratio */}
+      {/* Cover area */}
       <div className="aspect-[616/353] relative overflow-hidden">
-        {/* Gradient fallback — always rendered, image appears on top */}
         <div
           className="absolute inset-0 flex items-center justify-center"
           style={{ background: `linear-gradient(135deg, ${from} 0%, ${to} 100%)` }}
@@ -61,7 +90,6 @@ function GameCard({
         </div>
         <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
 
-        {/* Steam cover image */}
         {coverUrl && (
           <img
             src={coverUrl}
@@ -71,10 +99,31 @@ function GameCard({
           />
         )}
 
-        {/* Hover arrow */}
-        <div className="absolute bottom-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-          <ChevronRight className="w-4 h-4 text-white/80 drop-shadow" />
+        {/* Selection checkbox (top-right) — only visible in selection mode */}
+        {selectionMode && (
+        <div
+          className="absolute top-2 right-2 z-20"
+          onClick={(e) => { e.stopPropagation(); onSelect() }}
+        >
+          <div
+            className={cn(
+              'w-5 h-5 rounded border-2 flex items-center justify-center transition-colors',
+              selected
+                ? 'bg-primary border-primary'
+                : 'bg-black/40 border-white/70 backdrop-blur-sm',
+            )}
+          >
+            {selected && <svg className="w-3 h-3 text-primary-foreground" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+          </div>
         </div>
+        )}
+
+        {/* Hover arrow (only when not in selection mode) */}
+        {!selectionMode && (
+          <div className="absolute bottom-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+            <ChevronRight className="w-4 h-4 text-white/80 drop-shadow" />
+          </div>
+        )}
       </div>
 
       {/* Info */}
@@ -84,6 +133,20 @@ function GameCard({
           {game.videoCount} {game.videoCount === 1 ? 'video' : 'videos'} &bull; {formatSize(game.totalSize)}
         </p>
       </div>
+
+      {/* Show-in-folder button (only when not selecting) */}
+      {!selectionMode && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            onOpenFolder()
+          }}
+          className="absolute bottom-3 right-3 p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-muted transition-all text-muted-foreground hover:text-foreground"
+          title="Show in Explorer"
+        >
+          <FolderOpen className="w-3.5 h-3.5" />
+        </button>
+      )}
     </button>
   )
 }
@@ -97,12 +160,19 @@ export default function Hub() {
   const [loading, setLoading] = useState(false)
   const [mediaPort, setMediaPort] = useState(0)
 
+  // Selection
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [deleteTarget, setDeleteTarget] = useState<GameFolder[] | null>(null)
+
+  const selectionMode = selected.size > 0
+
   useEffect(() => {
     window.api.mediaPort().then(setMediaPort)
   }, [])
 
   const loadGames = useCallback(async (capturesPath: string) => {
     setLoading(true)
+    setSelected(new Set())
     try {
       const result = await window.api.listGames(capturesPath)
       setGames(result)
@@ -120,13 +190,62 @@ export default function Hub() {
     })
   }, [loadGames])
 
+  // Delete key
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Delete' && selectionMode) {
+        e.preventDefault()
+        setDeleteTarget(games.filter((g) => selected.has(g.fullPath)))
+      }
+      if (e.key === 'Escape' && selectionMode) {
+        setSelected(new Set())
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [selectionMode, selected, games])
+
+  const toggleSelect = useCallback((path: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(path)) next.delete(path)
+      else next.add(path)
+      return next
+    })
+  }, [])
+
+  const handleCardClick = useCallback(
+    (game: GameFolder, e: React.MouseEvent) => {
+      if (e.ctrlKey || e.metaKey || selectionMode) {
+        toggleSelect(game.fullPath)
+      } else {
+        navigate('/hub/folder', { state: { game } })
+      }
+    },
+    [selectionMode, toggleSelect, navigate],
+  )
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return
+    for (const g of deleteTarget) {
+      await window.api.deleteFolder(g.fullPath)
+    }
+    setGames((prev) => prev.filter((g) => !deleteTarget.some((d) => d.fullPath === g.fullPath)))
+    setSelected((prev) => {
+      const next = new Set(prev)
+      deleteTarget.forEach((d) => next.delete(d.fullPath))
+      return next
+    })
+    setDeleteTarget(null)
+  }
+
   const totalVideos = games.reduce((s, g) => s + g.videoCount, 0)
   const totalSize = games.reduce((s, g) => s + g.totalSize, 0)
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full relative">
       {/* Header */}
-      <div className="px-6 py-4 border-b flex items-center gap-3">
+      <div className="px-6 py-4 border-b flex items-center gap-3 shrink-0">
         <div className="flex-1 min-w-0">
           <h1 className="text-base font-semibold">Game Library</h1>
           {settings?.nvidiaCapturesPath ? (
@@ -173,7 +292,7 @@ export default function Hub() {
             </Button>
           </div>
         ) : loading ? (
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="rounded-xl border overflow-hidden animate-pulse">
                 <div className="aspect-[616/353] bg-muted" />
@@ -211,19 +330,93 @@ export default function Hub() {
                 <span className="font-semibold text-foreground">{formatSize(totalSize)}</span> total
               </span>
             </div>
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 pb-20">
               {games.map((game) => (
-                <GameCard
-                  key={game.fullPath}
-                  game={game}
-                  mediaPort={mediaPort}
-                  onClick={() => navigate('/hub/folder', { state: { game } })}
-                />
+                <ContextMenu key={game.fullPath}>
+                  <ContextMenuTrigger className="block">
+                    <GameCard
+                        game={game}
+                        mediaPort={mediaPort}
+                        selected={selected.has(game.fullPath)}
+                        selectionMode={selectionMode}
+                        onClick={(e) => handleCardClick(game, e)}
+                        onSelect={() => toggleSelect(game.fullPath)}
+                        onOpenFolder={() => window.api.showInFolder(game.fullPath)}
+                      />
+                  </ContextMenuTrigger>
+                  <ContextMenuContent>
+                    <ContextMenuItem onClick={() => navigate('/hub/folder', { state: { game } })}>
+                      Open
+                    </ContextMenuItem>
+                    <ContextMenuItem onClick={() => toggleSelect(game.fullPath)}>
+                      {selected.has(game.fullPath) ? 'Deselect' : 'Select'}
+                    </ContextMenuItem>
+                    <ContextMenuItem onClick={() => window.api.showInFolder(game.fullPath)}>
+                      Show in Explorer
+                    </ContextMenuItem>
+                    <ContextMenuSeparator />
+                    <ContextMenuItem
+                      className="text-destructive focus:text-destructive"
+                      onClick={() => setDeleteTarget([game])}
+                    >
+                      Delete Folder
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                </ContextMenu>
               ))}
             </div>
           </div>
         )}
       </div>
+
+      {/* Floating selection bar */}
+      {selectionMode && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-popover border shadow-xl rounded-2xl px-4 py-2.5 min-w-[240px]">
+          <span className="text-sm font-medium flex-1">
+            {selected.size} selected
+          </span>
+          <Button
+            variant="destructive"
+            size="sm"
+            className="h-8 gap-1.5"
+            onClick={() => setDeleteTarget(games.filter((g) => selected.has(g.fullPath)))}
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            Delete
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 px-2"
+            onClick={() => setSelected(new Set())}
+          >
+            <X className="w-4 h-4" />
+          </Button>
+        </div>
+      )}
+
+      {/* Delete confirmation */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {deleteTarget?.length === 1 ? 'folder' : `${deleteTarget?.length} folders`}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget?.length === 1
+                ? <>This will permanently delete <strong>{deleteTarget[0].name}</strong> and all its videos. This cannot be undone.</>
+                : <>This will permanently delete {deleteTarget?.length} game folders and all their videos. This cannot be undone.</>}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={confirmDelete}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

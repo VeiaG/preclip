@@ -228,6 +228,18 @@ app.whenReady().then(() => {
   ipcMain.handle('thumbnails:clearCache', () => clearThumbnailCache())
   ipcMain.handle('thumbnails:cacheSize', () => getThumbnailCacheSize())
 
+  // Delete folder (recursive)
+  ipcMain.handle('fs:deleteFolder', (_, folderPath: string) => {
+    fs.rmSync(folderPath, { recursive: true, force: true })
+  })
+
+  // Delete specific files
+  ipcMain.handle('fs:deleteFiles', (_, filePaths: string[]) => {
+    for (const fp of filePaths) {
+      try { fs.unlinkSync(fp) } catch {}
+    }
+  })
+
   // Media server port — renderer fetches this once on load
   ipcMain.handle('media:port', () => mediaServerPort)
 

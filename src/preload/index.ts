@@ -61,6 +61,10 @@ const api = {
   clearThumbnailCache: (): Promise<void> => ipcRenderer.invoke('thumbnails:clearCache'),
   getThumbnailCacheSize: (): Promise<number> => ipcRenderer.invoke('thumbnails:cacheSize'),
 
+  // Delete
+  deleteFolder: (folderPath: string): Promise<void> => ipcRenderer.invoke('fs:deleteFolder', folderPath),
+  deleteFiles: (filePaths: string[]): Promise<void> => ipcRenderer.invoke('fs:deleteFiles', filePaths),
+
   // Media server
   mediaPort: (): Promise<number> => ipcRenderer.invoke('media:port'),
 
