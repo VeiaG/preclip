@@ -55,6 +55,7 @@ export async function generateThumbnail(videoPath: string): Promise<string> {
         .seekInput(1)
         .outputOptions(['-vframes', '1', '-vf', 'scale=320:-1', '-q:v', '3'])
         .output(out)
+        //@ts-ignore
         .on('end', resolve)
         .on('error', (err) => {
           console.error('[thumbnail]', path.basename(videoPath), err.message)

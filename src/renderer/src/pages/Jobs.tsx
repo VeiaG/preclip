@@ -5,7 +5,7 @@ import {
   FileVideo, ListChecks, X, ChevronRight,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+// import { cn } from '@/lib/utils'
 import { useJobs } from '@/context/JobsContext'
 import type { Job, JobStatus } from '../../../shared/types'
 
