@@ -48,12 +48,6 @@ const api = {
   // Media server
   mediaPort: (): Promise<number> => ipcRenderer.invoke('media:port'),
 
-  // Video utilities
-  hasFaststart: (filePath: string): Promise<boolean> =>
-    ipcRenderer.invoke('video:hasFaststart', filePath),
-
-  remuxFaststart: (inputPath: string, outputPath: string): Promise<void> =>
-    ipcRenderer.invoke('video:remuxFaststart', inputPath, outputPath),
 }
 
 if (process.contextIsolated) {

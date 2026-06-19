@@ -7,7 +7,6 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { addJob, cancelJob, getAllJobs, getRunningJobs } from './jobQueue'
 import { getSettings, setSettings } from './settings'
-import { hasMoovAtStart, remuxFaststart } from './video'
 
 const MEDIA_MIME: Record<string, string> = {
   '.mp4': 'video/mp4',
@@ -180,12 +179,6 @@ app.whenReady().then(() => {
 
   // Media server port — renderer fetches this once on load
   ipcMain.handle('media:port', () => mediaServerPort)
-
-  // Video utilities
-  ipcMain.handle('video:hasFaststart', (_, filePath: string) => hasMoovAtStart(filePath))
-  ipcMain.handle('video:remuxFaststart', (_, inputPath: string, outputPath: string) =>
-    remuxFaststart(inputPath, outputPath)
-  )
 
   createWindow()
 

@@ -23,8 +23,6 @@ interface VideoKitAPI {
   listDir: (dirPath: string) => Promise<{ name: string; fullPath: string }[]>
 
   mediaPort: () => Promise<number>
-  hasFaststart: (filePath: string) => Promise<boolean>
-  remuxFaststart: (inputPath: string, outputPath: string) => Promise<void>
 }
 
 declare global {
