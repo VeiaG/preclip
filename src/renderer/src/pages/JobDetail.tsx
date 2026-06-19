@@ -1,0 +1,274 @@
+import { useState } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
+import {
+  ArrowLeft, Loader2, CheckCircle2, AlertCircle, Clock, XCircle,
+  FolderOpen, X, FileVideo, Info,
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import {
+  Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger,
+} from '@/components/ui/sheet'
+import { cn } from '@/lib/utils'
+import { useJobs } from '@/context/JobsContext'
+import type { Job, JobStatus, CompressMetadata } from '../../../shared/types'
+
+function formatSize(bytes: number) {
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+}
+
+function formatDate(ts: number) {
+  return new Date(ts).toLocaleString()
+}
+
+function pathToMediaUrl(p: string) {
+  return 'media:///' + encodeURIComponent(p)
+}
+
+// ── Status badge in header ──────────────────────────────────────────────────
+const STATUS_CONFIG: Record<JobStatus, { icon: React.ElementType; label: string; className: string }> = {
+  running:   { icon: Loader2,      label: 'Converting',  className: 'text-primary' },
+  queued:    { icon: Clock,        label: 'Queued',       className: 'text-muted-foreground' },
+  done:      { icon: CheckCircle2, label: 'Done',         className: 'text-green-500' },
+  error:     { icon: AlertCircle,  label: 'Error',        className: 'text-destructive' },
+  cancelled: { icon: XCircle,      label: 'Cancelled',    className: 'text-muted-foreground' },
+}
+
+function StatusBadge({ status }: { status: JobStatus }) {
+  const { icon: Icon, label, className } = STATUS_CONFIG[status]
+  return (
+    <div className={cn('flex items-center gap-1.5 text-sm font-medium', className)}>
+      <Icon className={cn('w-3.5 h-3.5', status === 'running' && 'animate-spin')} />
+      {label}
+    </div>
+  )
+}
+
+// ── Video preview with status overlays ──────────────────────────────────────
+function VideoPreview({ src, status, progress }: { src: string; status: JobStatus; progress: number }) {
+  return (
+    <div className="relative rounded-xl overflow-hidden bg-black h-44 w-full">
+      <video
+        src={src}
+        className="w-full h-full object-contain"
+        controls
+        preload="metadata"
+        muted
+      />
+
+      {/* Running overlay — pulsing bars + % */}
+      {status === 'running' && (
+        <div className="absolute inset-0 bg-black/65 flex flex-col items-center justify-center gap-4">
+          <div className="flex items-end gap-1.5 h-10">
+            {[0.5, 0.8, 1, 0.65, 0.9, 0.55, 0.75].map((h, i) => (
+              <div
+                key={i}
+                className="w-1.5 rounded-full bg-white animate-pulse"
+                style={{ height: `${h * 40}px`, animationDelay: `${i * 0.12}s` }}
+              />
+            ))}
+          </div>
+          <p className="text-white text-3xl font-bold tabular-nums">{Math.round(progress)}%</p>
+          <div className="w-36 h-0.5 bg-white/20 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-white rounded-full transition-all duration-200"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Queued overlay */}
+      {status === 'queued' && (
+        <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-2">
+          <Clock className="w-8 h-8 text-white/50" />
+          <p className="text-white/50 text-sm">Waiting in queue</p>
+        </div>
+      )}
+
+      {/* Done badge */}
+      {status === 'done' && (
+        <div className="absolute top-2.5 right-2.5 bg-green-500 rounded-full p-1 shadow">
+          <CheckCircle2 className="w-3.5 h-3.5 text-white" />
+        </div>
+      )}
+
+      {/* Error overlay */}
+      {status === 'error' && (
+        <div className="absolute inset-0 bg-red-950/50 flex items-center justify-center">
+          <AlertCircle className="w-10 h-10 text-red-400" />
+        </div>
+      )}
+
+      {/* Cancelled overlay */}
+      {status === 'cancelled' && (
+        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+          <XCircle className="w-10 h-10 text-muted-foreground/60" />
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Stat card (used for size comparison) ────────────────────────────────────
+function StatCard({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+  return (
+    <div className="rounded-xl border bg-muted/30 px-3 py-4 text-center space-y-1">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className={cn('text-lg font-bold', accent && 'text-green-600 dark:text-green-400')}>{value}</p>
+    </div>
+  )
+}
+
+// ── Sheet detail row ─────────────────────────────────────────────────────────
+function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex justify-between items-start px-4 py-2.5 text-sm gap-4">
+      <span className="text-muted-foreground shrink-0">{label}</span>
+      <span className="font-medium text-right break-all">{value}</span>
+    </div>
+  )
+}
+
+// ── Cancel with confirm ──────────────────────────────────────────────────────
+function CancelSection({ job }: { job: Job }) {
+  const [confirming, setConfirming] = useState(false)
+  if (job.status !== 'running' && job.status !== 'queued') return null
+
+  return confirming ? (
+    <div className="flex items-center gap-2">
+      <span className="text-sm text-muted-foreground flex-1">Cancel this job?</span>
+      <Button size="sm" variant="destructive"
+        onClick={() => { window.api.cancelJob(job.id); setConfirming(false) }}>
+        Yes, cancel
+      </Button>
+      <Button size="sm" variant="ghost" onClick={() => setConfirming(false)}>Keep</Button>
+    </div>
+  ) : (
+    <Button variant="outline" size="sm" className="w-full text-muted-foreground"
+      onClick={(e) => { if (e.shiftKey) { window.api.cancelJob(job.id); return } setConfirming(true) }}>
+      <X className="w-3.5 h-3.5 mr-1.5" />
+      Cancel job
+    </Button>
+  )
+}
+
+// ── Page ─────────────────────────────────────────────────────────────────────
+export default function JobDetail() {
+  const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
+  const { jobs } = useJobs()
+  const job = jobs.find((j) => j.id === id)
+
+  if (!job) {
+    return (
+      <div className="flex flex-col h-full items-center justify-center gap-4">
+        <FileVideo className="w-10 h-10 text-muted-foreground" />
+        <p className="text-muted-foreground">Job not found</p>
+        <Button variant="outline" size="sm" onClick={() => navigate('/jobs')}>Back to Jobs</Button>
+      </div>
+    )
+  }
+
+  const metadata = job.metadata as CompressMetadata
+  const saving =
+    job.outputSize && job.inputSize > 0
+      ? Math.round((1 - job.outputSize / job.inputSize) * 100)
+      : null
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="px-4 py-4 border-b flex items-center gap-3">
+        <button
+          onClick={() => navigate('/jobs')}
+          className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0"
+        >
+          <ArrowLeft className="w-4 h-4" />
+        </button>
+
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold truncate">{job.name}</p>
+          <StatusBadge status={job.status} />
+        </div>
+
+        {/* Open in Folder — only when done */}
+        {job.status === 'done' && (
+          <button
+            onClick={() => window.api.showInFolder(job.outputPath)}
+            className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0"
+            title="Open in Folder"
+          >
+            <FolderOpen className="w-4 h-4" />
+          </button>
+        )}
+
+        {/* Details trigger */}
+        <Sheet>
+          <SheetTrigger
+            className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0"
+            aria-label="Details"
+          >
+            <Info className="w-4 h-4" />
+          </SheetTrigger>
+          <SheetContent side="right">
+            <SheetHeader>
+              <SheetTitle>Job details</SheetTitle>
+            </SheetHeader>
+            <div className="flex-1 overflow-y-auto">
+              <div className="py-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-4 py-2">
+                  Settings
+                </p>
+                <div className="divide-y border-y">
+                  <DetailRow label="Quality" value={`${metadata.quality}%`} />
+                  <DetailRow label="Scale" value={`${metadata.scale}×`} />
+                  <DetailRow label="Format" value={metadata.format?.toUpperCase()} />
+                </div>
+              </div>
+              <div className="py-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-4 py-2">
+                  Files
+                </p>
+                <div className="divide-y border-y">
+                  <DetailRow label="Input" value={job.inputPath} />
+                  <DetailRow label="Output" value={job.outputPath} />
+                  <DetailRow label="Started" value={formatDate(job.createdAt)} />
+                  {job.completedAt && <DetailRow label="Completed" value={formatDate(job.completedAt)} />}
+                </div>
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
+      </div>
+
+      {/* Body */}
+      <div className="flex-1 overflow-y-auto flex flex-col p-5 gap-5">
+        {/* Video preview */}
+        <VideoPreview
+          src={pathToMediaUrl(job.status === 'done' ? job.outputPath : job.inputPath)}
+          status={job.status}
+          progress={job.progress}
+        />
+
+        {/* Done — size cards */}
+        {job.status === 'done' && job.outputSize && saving !== null && (
+          <div className="grid grid-cols-3 gap-3">
+            <StatCard label="Original" value={formatSize(job.inputSize)} />
+            <StatCard label="Output" value={formatSize(job.outputSize)} />
+            <StatCard label="Saved" value={`−${saving}%`} accent />
+          </div>
+        )}
+
+        {/* Error message */}
+        {job.status === 'error' && (
+          <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+            {job.error}
+          </div>
+        )}
+
+        <CancelSection job={job} />
+      </div>
+    </div>
+  )
+}

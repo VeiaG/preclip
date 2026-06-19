@@ -1,11 +1,100 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join } from 'path'
+import path from 'path'
+import fs from 'fs'
+import http from 'http'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import { addJob, cancelJob, getAllJobs, getRunningJobs } from './jobQueue'
+import { getSettings, setSettings } from './settings'
+import { hasMoovAtStart, remuxFaststart } from './video'
 
-function createWindow(): void {
-  // Create the browser window.
-  const mainWindow = new BrowserWindow({
+const MEDIA_MIME: Record<string, string> = {
+  '.mp4': 'video/mp4',
+  '.mov': 'video/mp4',
+  '.avi': 'video/x-msvideo',
+  '.mkv': 'video/x-matroska',
+  '.webm': 'video/webm',
+  '.wmv': 'video/x-ms-wmv',
+}
+
+// Local HTTP media server — avoids all Electron protocol.handle quirks.
+// fs.createReadStream().pipe(res) handles backpressure correctly and has
+// been battle-tested for video streaming for years.
+let mediaServerPort = 0
+
+const mediaServer = http.createServer((req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Headers', 'Range')
+  res.setHeader('Access-Control-Expose-Headers', 'Content-Range, Accept-Ranges, Content-Length')
+
+  if (!req.url || req.url === '/') {
+    res.writeHead(400)
+    res.end()
+    return
+  }
+
+  const filePath = decodeURIComponent(req.url.slice(1))
+  const contentType = MEDIA_MIME[path.extname(filePath).toLowerCase()] ?? 'video/mp4'
+
+  let stat: fs.Stats
+  try {
+    stat = fs.statSync(filePath)
+  } catch {
+    res.writeHead(404)
+    res.end('Not found')
+    return
+  }
+
+  const fileSize = stat.size
+  const rangeHeader = req.headers.range
+
+  if (rangeHeader) {
+    const startByte = parseInt(rangeHeader.match(/(\d+)-/)?.[1] ?? '0', 10)
+    const endStr = rangeHeader.match(/-(\d+)/)?.[1]
+    const endByte = endStr ? Math.min(parseInt(endStr, 10), fileSize - 1) : fileSize - 1
+
+    if (startByte >= fileSize) {
+      res.writeHead(416, { 'Content-Range': `bytes */${fileSize}` })
+      res.end()
+      return
+    }
+
+    console.log(`[media] ${path.basename(filePath)} | ${startByte}-${endByte}/${fileSize}`)
+
+    res.writeHead(206, {
+      'Content-Range': `bytes ${startByte}-${endByte}/${fileSize}`,
+      'Accept-Ranges': 'bytes',
+      'Content-Length': String(endByte - startByte + 1),
+      'Content-Type': contentType,
+    })
+
+    fs.createReadStream(filePath, { start: startByte, end: endByte }).pipe(res)
+  } else {
+    console.log(`[media] ${path.basename(filePath)} | full ${fileSize}`)
+
+    res.writeHead(200, {
+      'Content-Length': String(fileSize),
+      'Content-Type': contentType,
+      'Accept-Ranges': 'bytes',
+    })
+
+    fs.createReadStream(filePath).pipe(res)
+  }
+})
+
+mediaServer.listen(0, '127.0.0.1', () => {
+  const addr = mediaServer.address()
+  if (addr && typeof addr === 'object') {
+    mediaServerPort = addr.port
+    console.log(`[media-server] http://127.0.0.1:${mediaServerPort}`)
+  }
+})
+
+let mainWindow: BrowserWindow
+
+function createWindow(): BrowserWindow {
+  mainWindow = new BrowserWindow({
     width: 900,
     height: 670,
     show: false,
@@ -15,62 +104,98 @@ function createWindow(): void {
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
-    }
+      sandbox: false,
+    },
   })
 
-  mainWindow.on('ready-to-show', () => {
-    mainWindow.show()
-  })
+  mainWindow.on('ready-to-show', () => mainWindow.show())
 
-  mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url)
     return { action: 'deny' }
   })
 
-  // HMR for renderer base on electron-vite cli.
-  // Load the remote URL for development or the local html file for production.
+  mainWindow.on('close', async (e) => {
+    const active = getRunningJobs()
+    if (active.length === 0) return
+    e.preventDefault()
+    const { response } = await dialog.showMessageBox(mainWindow, {
+      type: 'warning',
+      buttons: ['Cancel', 'Quit Anyway'],
+      defaultId: 0,
+      cancelId: 0,
+      message: `${active.length} job${active.length > 1 ? 's are' : ' is'} still running.`,
+      detail: 'Quitting now will cancel all running conversions.',
+    })
+    if (response === 1) app.quit()
+  })
+
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
+
+  return mainWindow
 }
 
-// This method will be called when Electron has finished
-// initialization and is ready to create browser windows.
-// Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
-  // Set app user model id for windows
   electronApp.setAppUserModelId('com.electron')
+  app.on('browser-window-created', (_, window) => optimizer.watchWindowShortcuts(window))
 
-  // Default open or close DevTools by F12 in development
-  // and ignore CommandOrControl + R in production.
-  // see https://github.com/alex8088/electron-toolkit/tree/master/packages/utils
-  app.on('browser-window-created', (_, window) => {
-    optimizer.watchWindowShortcuts(window)
+  // Jobs
+  ipcMain.handle('jobs:add', (_, opts) => addJob(mainWindow, opts))
+  ipcMain.on('jobs:cancel', (_, id: string) => cancelJob(mainWindow, id))
+  ipcMain.handle('jobs:getAll', () => getAllJobs())
+
+  // Settings
+  ipcMain.handle('settings:get', () => getSettings())
+  ipcMain.handle('settings:set', (_, partial) => setSettings(partial))
+
+  // File system
+  ipcMain.handle('dialog:openFile', async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      properties: ['openFile'],
+      filters: [{ name: 'Videos', extensions: ['mp4', 'mov', 'avi', 'mkv', 'webm', 'flv', 'wmv'] }],
+    })
+    if (result.canceled || result.filePaths.length === 0) return null
+    const filePath = result.filePaths[0]
+    return { path: filePath, name: path.basename(filePath), size: fs.statSync(filePath).size }
   })
 
-  // IPC test
-  ipcMain.on('ping', () => console.log('pong'))
+  ipcMain.handle('dialog:openDir', async () => {
+    const result = await dialog.showOpenDialog(mainWindow, { properties: ['openDirectory'] })
+    if (result.canceled || result.filePaths.length === 0) return null
+    return result.filePaths[0]
+  })
+
+  ipcMain.on('shell:showInFolder', (_, filePath: string) => shell.showItemInFolder(filePath))
+
+  ipcMain.handle('fs:listDir', (_, dirPath: string) => {
+    const exts = ['.mp4', '.mov', '.avi', '.mkv', '.webm', '.wmv']
+    return fs.readdirSync(dirPath)
+      .filter(f => exts.includes(path.extname(f).toLowerCase()))
+      .map(f => ({ name: f, fullPath: path.join(dirPath, f) }))
+  })
+
+  // Media server port — renderer fetches this once on load
+  ipcMain.handle('media:port', () => mediaServerPort)
+
+  // Video utilities
+  ipcMain.handle('video:hasFaststart', (_, filePath: string) => hasMoovAtStart(filePath))
+  ipcMain.handle('video:remuxFaststart', (_, inputPath: string, outputPath: string) =>
+    remuxFaststart(inputPath, outputPath)
+  )
 
   createWindow()
 
-  app.on('activate', function () {
-    // On macOS it's common to re-create a window in the app when the
-    // dock icon is clicked and there are no other windows open.
+  app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 })
 
-// Quit when all windows are closed, except on macOS. There, it's common
-// for applications and their menu bar to stay active until the user quits
-// explicitly with Cmd + Q.
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit()
-  }
+  if (process.platform !== 'darwin') app.quit()
 })
 
-// In this file you can include the rest of your app's specific main process
-// code. You can also put them in separate files and require them here.
+app.on('before-quit', () => mediaServer.close())

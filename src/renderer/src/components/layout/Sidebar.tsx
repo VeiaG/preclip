@@ -1,5 +1,5 @@
 import { useLocation, NavLink } from 'react-router-dom'
-import { Home, Film, Clapperboard, Settings } from 'lucide-react'
+import { Home, Film, Clapperboard, Settings, ListChecks, FlaskConical, Bug } from 'lucide-react'
 import {
   Sidebar,
   SidebarContent,
@@ -12,15 +12,20 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from '@/components/ui/sidebar'
+import { useJobs } from '@/context/JobsContext'
 
 const mainNav = [
   { to: '/', label: 'Home', icon: Home, end: true },
-  { to: '/compress', label: 'Compress', icon: Film, end: false },
+  { to: '/compress', label: 'Compress', icon: Film, end: true },
   { to: '/gif', label: 'GIF', icon: Clapperboard, end: false },
 ]
 
 export function AppSidebar() {
   const location = useLocation()
+  const { jobs } = useJobs()
+  const activeCount = jobs.filter((j) => j.status === 'running' || j.status === 'queued').length
+
+  const isJobsActive = location.pathname === '/jobs' || location.pathname.startsWith('/jobs/')
 
   return (
     <Sidebar collapsible="icon">
@@ -42,9 +47,7 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {mainNav.map(({ to, label, icon: Icon, end }) => {
-                const isActive = end
-                  ? location.pathname === to
-                  : location.pathname.startsWith(to)
+                const isActive = end ? location.pathname === to : location.pathname.startsWith(to)
                 return (
                   <SidebarMenuItem key={to}>
                     <SidebarMenuButton
@@ -58,6 +61,23 @@ export function AppSidebar() {
                   </SidebarMenuItem>
                 )
               })}
+
+              {/* Jobs */}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  render={<NavLink to="/jobs" />}
+                  isActive={isJobsActive}
+                  tooltip="Jobs"
+                >
+                  <ListChecks />
+                  <span className="flex-1">Jobs</span>
+                  {activeCount > 0 && (
+                    <span className="text-[10px] font-semibold bg-primary text-primary-foreground rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
+                      {activeCount}
+                    </span>
+                  )}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -65,6 +85,26 @@ export function AppSidebar() {
 
       <SidebarFooter>
         <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              render={<NavLink to="/test" />}
+              isActive={location.pathname === '/test'}
+              tooltip="Video Test"
+            >
+              <FlaskConical />
+              <span>Video Test</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              render={<NavLink to="/debug" />}
+              isActive={location.pathname === '/debug'}
+              tooltip="Video Debug"
+            >
+              <Bug />
+              <span>Video Debug</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton
               render={<NavLink to="/settings" />}
