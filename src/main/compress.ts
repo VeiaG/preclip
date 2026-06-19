@@ -12,11 +12,16 @@ function qualityToCrf(quality: number, isVp9: boolean): number {
   return Math.round(35 - (quality / 100) * 17)
 }
 
-export function buildOutputPath(inputPath: string, format: string, outputDir: string | null): string {
+export function buildOutputPath(
+  inputPath: string,
+  format: string,
+  outputDir: string | null,
+  suffix = 'compressed',
+): string {
   const dir = outputDir ?? path.dirname(inputPath)
   const ext = path.extname(inputPath)
   const base = path.basename(inputPath, ext)
-  return path.join(dir, `${base}_compressed.${format}`)
+  return path.join(dir, `${base}_${suffix}.${format}`)
 }
 
 export function runCompress(
@@ -31,7 +36,18 @@ export function runCompress(
   const crf = qualityToCrf(quality, isVp9)
 
   return new Promise((resolve, reject) => {
+    const { trimStart, trimEnd } = metadata
+
     const cmd = ffmpeg(inputPath)
+
+    if (trimStart !== undefined && trimStart > 0) {
+      cmd.seekInput(trimStart)
+    }
+
+    if (trimEnd !== undefined) {
+      const clipDuration = trimEnd - (trimStart ?? 0)
+      cmd.outputOption('-t', String(clipDuration))
+    }
 
     if (isVp9) {
       cmd.videoCodec('libvpx-vp9').addOption('-crf', String(crf)).addOption('-b:v', '0')

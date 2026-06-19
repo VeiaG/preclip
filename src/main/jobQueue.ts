@@ -73,7 +73,9 @@ export function addJob(
 ): Job {
   const settings = getSettings()
   const format = getOutputFormat(opts.type, opts.metadata)
-  const outputPath = buildOutputPath(opts.inputPath, format, settings.outputDir)
+  const meta = opts.metadata as CompressMetadata
+  const hasTrim = meta.trimStart !== undefined || meta.trimEnd !== undefined
+  const outputPath = buildOutputPath(opts.inputPath, format, settings.outputDir, hasTrim ? 'clip' : 'compressed')
 
   const job: Job = {
     id: crypto.randomUUID(),

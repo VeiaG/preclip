@@ -5,6 +5,8 @@ export interface CompressMetadata {
   quality: number
   scale: number
   format: string
+  trimStart?: number
+  trimEnd?: number
 }
 
 export interface GifMetadata {
@@ -34,4 +36,5 @@ export interface AppSettings {
   theme: 'light' | 'dark' | 'system'
   maxParallelJobs: number
   outputDir: string | null
+  nvidiaCapturesPath: string | null
 }

@@ -11,6 +11,9 @@ import GifConverter from './pages/GifConverter'
 import Settings from './pages/Settings'
 import VideoTest from './pages/VideoTest'
 import VideoDebug from './pages/VideoDebug'
+import Hub from './pages/Hub'
+import GameFolder from './pages/GameFolder'
+import ClipEditor from './pages/ClipEditor'
 
 function App(): React.JSX.Element {
   return (
@@ -26,6 +29,9 @@ function App(): React.JSX.Element {
                 <Route path="/jobs/:id" element={<JobDetail />} />
                 <Route path="/gif" element={<GifConverter />} />
                 <Route path="/settings" element={<Settings />} />
+                <Route path="/hub" element={<Hub />} />
+                <Route path="/hub/folder" element={<GameFolder />} />
+                <Route path="/editor" element={<ClipEditor />} />
                 <Route path="/test" element={<VideoTest />} />
                 <Route path="/debug" element={<VideoDebug />} />
               </Route>

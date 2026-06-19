@@ -1,5 +1,5 @@
 import { useLocation, NavLink } from 'react-router-dom'
-import { Home, Film, Clapperboard, Settings, ListChecks, FlaskConical, Bug } from 'lucide-react'
+import { Home, Film, Clapperboard, Settings, ListChecks, FlaskConical, Bug, Gamepad2 } from 'lucide-react'
 import {
   Sidebar,
   SidebarContent,
@@ -16,6 +16,7 @@ import { useJobs } from '@/context/JobsContext'
 
 const mainNav = [
   { to: '/', label: 'Home', icon: Home, end: true },
+  { to: '/hub', label: 'Game Library', icon: Gamepad2, end: true },
   { to: '/compress', label: 'Compress', icon: Film, end: true },
   { to: '/gif', label: 'GIF', icon: Clapperboard, end: false },
 ]

@@ -21,6 +21,14 @@ interface VideoKitAPI {
   getPathForFile: (file: File) => string
   showInFolder: (filePath: string) => void
   listDir: (dirPath: string) => Promise<{ name: string; fullPath: string }[]>
+  listGames: (dirPath: string) => Promise<{ name: string; fullPath: string; videoCount: number; totalSize: number }[]>
+  listVideos: (dirPath: string) => Promise<{ name: string; fullPath: string; size: number; modifiedAt: number }[]>
+
+  getGameCover: (gameName: string) => Promise<string | null>
+
+  getThumbnail: (videoPath: string) => Promise<string | null>
+  clearThumbnailCache: () => Promise<void>
+  getThumbnailCacheSize: () => Promise<number>
 
   mediaPort: () => Promise<number>
 }

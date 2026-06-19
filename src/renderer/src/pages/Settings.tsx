@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Sun, Moon, Monitor, FolderOpen, Minus, Plus } from 'lucide-react'
+import { useEffect, useState, useCallback } from 'react'
+import { Sun, Moon, Monitor, FolderOpen, Minus, Plus, Gamepad2, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTheme } from '@/context/ThemeContext'
 import { Button } from '@/components/ui/button'
@@ -19,13 +19,27 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   )
 }
 
+function formatSize(bytes: number) {
+  if (bytes >= 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024 / 1024).toFixed(1)} GB`
+  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+  if (bytes > 0) return `${(bytes / 1024).toFixed(0)} KB`
+  return 'Empty'
+}
+
 export default function Settings() {
   const { theme, setTheme } = useTheme()
   const [settings, setSettingsState] = useState<AppSettings | null>(null)
+  const [cacheSize, setCacheSize] = useState<number>(0)
+  const [clearing, setClearing] = useState(false)
+
+  const refreshCacheSize = useCallback(() => {
+    window.api.getThumbnailCacheSize().then(setCacheSize)
+  }, [])
 
   useEffect(() => {
     window.api.getSettings().then(setSettingsState)
-  }, [])
+    refreshCacheSize()
+  }, [refreshCacheSize])
 
   const save = async (partial: Partial<AppSettings>) => {
     const updated = await window.api.setSettings(partial)
@@ -35,6 +49,18 @@ export default function Settings() {
   const handleChangeOutputDir = async () => {
     const dir = await window.api.openDir()
     if (dir !== null) save({ outputDir: dir })
+  }
+
+  const handleChangeNvidiaPath = async () => {
+    const dir = await window.api.openDir()
+    if (dir !== null) save({ nvidiaCapturesPath: dir })
+  }
+
+  const handleClearCache = async () => {
+    setClearing(true)
+    await window.api.clearThumbnailCache()
+    refreshCacheSize()
+    setClearing(false)
   }
 
   return (
@@ -117,6 +143,58 @@ export default function Settings() {
                 Change
               </Button>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <SectionLabel>Game Library</SectionLabel>
+        <div className="border rounded-xl divide-y">
+          <div className="flex items-center justify-between px-4 py-3">
+            <div>
+              <p className="text-sm font-medium flex items-center gap-1.5">
+                <Gamepad2 className="w-4 h-4 text-muted-foreground" />
+                NVIDIA captures folder
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5 max-w-[220px] truncate">
+                {settings?.nvidiaCapturesPath ?? 'Not configured'}
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5">
+              {settings?.nvidiaCapturesPath && (
+                <Button variant="ghost" size="sm" onClick={() => save({ nvidiaCapturesPath: null })}>
+                  Reset
+                </Button>
+              )}
+              <Button variant="outline" size="sm" onClick={handleChangeNvidiaPath}>
+                <FolderOpen className="w-3.5 h-3.5 mr-1.5" />
+                {settings?.nvidiaCapturesPath ? 'Change' : 'Set'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <SectionLabel>Cache</SectionLabel>
+        <div className="border rounded-xl divide-y">
+          <div className="flex items-center justify-between px-4 py-3">
+            <div>
+              <p className="text-sm font-medium">Thumbnail cache</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {formatSize(cacheSize)} of preview images
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleClearCache}
+              disabled={clearing || cacheSize === 0}
+              className="gap-1.5"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              {clearing ? 'Clearing…' : 'Clear'}
+            </Button>
           </div>
         </div>
       </section>

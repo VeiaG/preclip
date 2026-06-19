@@ -45,6 +45,22 @@ const api = {
   listDir: (dirPath: string): Promise<{ name: string; fullPath: string }[]> =>
     ipcRenderer.invoke('fs:listDir', dirPath),
 
+  listGames: (dirPath: string): Promise<{ name: string; fullPath: string; videoCount: number; totalSize: number }[]> =>
+    ipcRenderer.invoke('fs:listGames', dirPath),
+
+  listVideos: (dirPath: string): Promise<{ name: string; fullPath: string; size: number; modifiedAt: number }[]> =>
+    ipcRenderer.invoke('fs:listVideos', dirPath),
+
+  // Game covers
+  getGameCover: (gameName: string): Promise<string | null> =>
+    ipcRenderer.invoke('covers:get', gameName),
+
+  // Thumbnails
+  getThumbnail: (videoPath: string): Promise<string | null> =>
+    ipcRenderer.invoke('thumbnails:get', videoPath),
+  clearThumbnailCache: (): Promise<void> => ipcRenderer.invoke('thumbnails:clearCache'),
+  getThumbnailCacheSize: (): Promise<number> => ipcRenderer.invoke('thumbnails:cacheSize'),
+
   // Media server
   mediaPort: (): Promise<number> => ipcRenderer.invoke('media:port'),
 

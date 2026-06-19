@@ -9,6 +9,7 @@ const defaults: AppSettings = {
   theme: 'system',
   maxParallelJobs: 1,
   outputDir: null,
+  nvidiaCapturesPath: null,
 }
 
 export function getSettings(): AppSettings {

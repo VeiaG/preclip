@@ -7,6 +7,8 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { addJob, cancelJob, getAllJobs, getRunningJobs } from './jobQueue'
 import { getSettings, setSettings } from './settings'
+import { generateThumbnail, clearThumbnailCache, getThumbnailCacheSize } from './thumbnails'
+import { getGameCover } from './covers'
 
 const MEDIA_MIME: Record<string, string> = {
   '.mp4': 'video/mp4',
@@ -176,6 +178,55 @@ app.whenReady().then(() => {
       .filter(f => exts.includes(path.extname(f).toLowerCase()))
       .map(f => ({ name: f, fullPath: path.join(dirPath, f) }))
   })
+
+  ipcMain.handle('fs:listGames', (_, dirPath: string) => {
+    const videoExts = new Set(['.mp4', '.mov', '.avi', '.mkv', '.webm', '.wmv'])
+    let entries: fs.Dirent[]
+    try {
+      entries = fs.readdirSync(dirPath, { withFileTypes: true })
+    } catch {
+      return []
+    }
+    return entries
+      .filter(e => e.isDirectory())
+      .map(dir => {
+        const fullPath = path.join(dirPath, dir.name)
+        let videoCount = 0
+        let totalSize = 0
+        try {
+          for (const f of fs.readdirSync(fullPath)) {
+            if (videoExts.has(path.extname(f).toLowerCase())) {
+              videoCount++
+              try { totalSize += fs.statSync(path.join(fullPath, f)).size } catch {}
+            }
+          }
+        } catch {}
+        return { name: dir.name, fullPath, videoCount, totalSize }
+      })
+      .filter(g => g.videoCount > 0)
+  })
+
+  ipcMain.handle('fs:listVideos', (_, dirPath: string) => {
+    const videoExts = new Set(['.mp4', '.mov', '.avi', '.mkv', '.webm', '.wmv'])
+    return fs.readdirSync(dirPath)
+      .filter(f => videoExts.has(path.extname(f).toLowerCase()))
+      .map(f => {
+        const fullPath = path.join(dirPath, f)
+        const stat = fs.statSync(fullPath)
+        return { name: f, fullPath, size: stat.size, modifiedAt: stat.mtimeMs }
+      })
+      .sort((a, b) => b.modifiedAt - a.modifiedAt)
+  })
+
+  // Game covers (Steam art)
+  ipcMain.handle('covers:get', (_, gameName: string) => getGameCover(gameName))
+
+  // Thumbnails
+  ipcMain.handle('thumbnails:get', async (_, videoPath: string) => {
+    try { return await generateThumbnail(videoPath) } catch { return null }
+  })
+  ipcMain.handle('thumbnails:clearCache', () => clearThumbnailCache())
+  ipcMain.handle('thumbnails:cacheSize', () => getThumbnailCacheSize())
 
   // Media server port — renderer fetches this once on load
   ipcMain.handle('media:port', () => mediaServerPort)
