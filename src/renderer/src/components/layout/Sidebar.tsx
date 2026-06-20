@@ -29,7 +29,7 @@ export function AppSidebar() {
   const isJobsActive = location.pathname === '/jobs' || location.pathname.startsWith('/jobs/')
 
   return (
-    <Sidebar collapsible="icon" variant='inset'>
+    <Sidebar collapsible="icon" >
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>

@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, dialog, Menu } from 'electron'
 import { join } from 'path'
 import path from 'path'
 import fs from 'fs'
@@ -102,9 +102,10 @@ function createWindow(): BrowserWindow {
     autoHideMenuBar: true,
     minWidth: 600,
     minHeight: 480,
+    backgroundColor:"#00000000",
     // Required properties for transparency effects
     transparent: true, 
-    frame: false, // Often required for clean background styles
+    // frame: false, // Often required for clean background styles
 
     // macOS Native Blur Effect
     vibrancy: 'fullscreen-ui', 
@@ -118,6 +119,8 @@ function createWindow(): BrowserWindow {
       sandbox: false,
     },
   })
+
+  Menu.setApplicationMenu(null);
 
   mainWindow.on('ready-to-show', () => mainWindow.show())
 

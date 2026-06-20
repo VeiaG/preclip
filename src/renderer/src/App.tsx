@@ -1,5 +1,4 @@
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
-import { ThemeProvider } from './context/ThemeContext'
 import { JobsProvider } from './context/JobsContext'
 import { TooltipProvider } from './components/ui/tooltip'
 import { Layout } from './components/layout/Layout'
@@ -17,7 +16,6 @@ import ClipEditor from './pages/ClipEditor'
 
 function App(): React.JSX.Element {
   return (
-    <ThemeProvider>
       <TooltipProvider>
         <MemoryRouter initialEntries={['/']}>
           <JobsProvider>
@@ -39,7 +37,6 @@ function App(): React.JSX.Element {
           </JobsProvider>
         </MemoryRouter>
       </TooltipProvider>
-    </ThemeProvider>
   )
 }
 

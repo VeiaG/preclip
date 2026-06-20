@@ -1,8 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Sun, Moon, Monitor, FolderOpen, Minus, Plus, Gamepad2, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useTheme } from '@/context/ThemeContext'
-import { VISUAL_THEMES } from '@/lib/themes'
 import { Button } from '@/components/ui/button'
 import type { AppSettings } from '../../../shared/types'
 
@@ -11,23 +9,6 @@ const themeOptions = [
   { value: 'dark', label: 'Dark', icon: Moon },
   { value: 'system', label: 'System', icon: Monitor },
 ] as const
-
-
-function VisualThemePreview({ themeClass, isDark }: { themeClass?: string; isDark?: boolean }) {
-  return (
-    <div className={cn('w-[72px] h-12 rounded-md overflow-hidden border', isDark && 'dark', themeClass)}>
-      <div className="flex h-full">
-        <div className="w-4 shrink-0 bg-sidebar border-r border-sidebar-border" />
-        <div className="flex-1 bg-background p-1 flex flex-col gap-0.5">
-          <div className="h-1.5 rounded-sm bg-primary w-3/4" />
-          <div className="h-1 rounded-sm bg-muted w-full" />
-          <div className="h-1 rounded-sm bg-muted w-2/3" />
-          <div className="mt-0.5 h-1.5 rounded-sm bg-accent w-1/2" />
-        </div>
-      </div>
-    </div>
-  )
-}
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -45,7 +26,6 @@ function formatSize(bytes: number) {
 }
 
 export default function Settings() {
-  const { theme, setTheme, resolvedTheme, visualTheme, setVisualTheme } = useTheme()
   const [settings, setSettingsState] = useState<AppSettings | null>(null)
   const [cacheSize, setCacheSize] = useState<number>(0)
   const [clearing, setClearing] = useState(false)
@@ -84,51 +64,6 @@ export default function Settings() {
   return (
     <div className="p-8 max-w-lg space-y-8">
       <h1 className="text-2xl font-bold">Settings</h1>
-
-      <section>
-        <SectionLabel>Appearance</SectionLabel>
-        <div className="border rounded-xl p-4 space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">Theme</label>
-            <div className="flex gap-2">
-              {themeOptions.map(({ value, label, icon: Icon }) => (
-                <button
-                  key={value}
-                  onClick={() => setTheme(value)}
-                  className={cn(
-                    'flex items-center gap-2 px-4 py-2 border rounded-lg text-sm font-medium transition-colors',
-                    theme === value ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-accent',
-                  )}
-                >
-                  <Icon className="w-4 h-4" />
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2">Visual theme</label>
-            <div className="flex gap-3">
-              {VISUAL_THEMES.map(({ slug, label }) => (
-                <button
-                  key={slug}
-                  onClick={() => setVisualTheme(slug)}
-                  className={cn(
-                    'flex flex-col items-center gap-1.5 p-2 rounded-xl border-2 transition-colors',
-                    visualTheme === slug
-                      ? 'border-primary'
-                      : 'border-transparent hover:border-muted-foreground/30',
-                  )}
-                >
-                  <VisualThemePreview themeClass={`theme-${slug}`} isDark={resolvedTheme === 'dark'} />
-                  <span className="text-xs font-medium">{label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
 
       <section>
         <SectionLabel>Processing</SectionLabel>
