@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import {  FolderOpen, Minus, Plus, Gamepad2, Trash2, ExternalLink } from 'lucide-react'
-// import { cn } from '@/lib/utils'
+import { formatSize } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import type { AppSettings } from '../../../shared/types'
 
@@ -11,13 +11,6 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
       {children}
     </h2>
   )
-}
-
-function formatSize(bytes: number) {
-  if (bytes >= 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024 / 1024).toFixed(1)} GB`
-  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`
-  if (bytes > 0) return `${(bytes / 1024).toFixed(0)} KB`
-  return 'Empty'
 }
 
 export default function Settings() {
@@ -156,7 +149,7 @@ export default function Settings() {
             <div>
               <p className="text-sm font-medium">Thumbnail cache</p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                {formatSize(cacheSize)} of preview images
+                {cacheSize > 0 ? `${formatSize(cacheSize)} of preview images` : 'Empty'}
               </p>
             </div>
             <div className="flex items-center gap-1.5">

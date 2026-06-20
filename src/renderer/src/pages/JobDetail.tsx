@@ -10,17 +10,11 @@ import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger,
 } from '@/components/ui/sheet'
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable'
-import { cn } from '@/lib/utils'
+import { cn, formatSize } from '@/lib/utils'
 import { useJobs } from '@/context/JobsContext'
 import type { Job, JobStatus, CompressMetadata } from '../../../shared/types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function formatSize(bytes: number) {
-  if (bytes >= 1_073_741_824) return `${(bytes / 1_073_741_824).toFixed(1)} GB`
-  if (bytes >= 1_048_576)     return `${(bytes / 1_048_576).toFixed(1)} MB`
-  return `${(bytes / 1024).toFixed(0)} KB`
-}
 
 function formatDate(ts: number) {
   return new Date(ts).toLocaleString()
@@ -51,7 +45,7 @@ function StatusBadge({ status }: { status: JobStatus }) {
 function VideoPreview({ src, status, progress }: { src: string; status: JobStatus; progress: number }) {
   return (
     <div className="relative w-full h-full bg-black overflow-hidden">
-      <video src={src} className="w-full h-full object-contain" controls preload="metadata" muted />
+      <video src={src} className="w-full h-full object-contain" controls preload="metadata" />
 
       {status === 'running' && (
         <div className="absolute inset-0 bg-black/65 flex flex-col items-center justify-center gap-4 pointer-events-none">
@@ -219,7 +213,7 @@ export default function JobDetail() {
         <ResizablePanelGroup orientation="horizontal" className="h-full">
 
           {/* Left: video preview */}
-          <ResizablePanel defaultSize={62} minSize={30}>
+          <ResizablePanel defaultSize="62%" minSize="40%">
             <div className="h-full bg-black">
               {videoSrc && <VideoPreview src={videoSrc} status={job.status} progress={job.progress} />}
             </div>
@@ -228,7 +222,7 @@ export default function JobDetail() {
           <ResizableHandle withHandle />
 
           {/* Right: info — @container for responsive grids */}
-          <ResizablePanel defaultSize={38} minSize={25}>
+          <ResizablePanel defaultSize="38%" minSize="28%" maxSize="60%">
             <div className="h-full overflow-y-auto p-5 flex flex-col gap-5 @container">
 
               {/* Size stats */}

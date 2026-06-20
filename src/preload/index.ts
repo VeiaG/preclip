@@ -17,12 +17,26 @@ const api = {
     ipcRenderer.send('jobs:cancel', id)
   },
 
+  removeJob: (id: string): void => {
+    ipcRenderer.send('jobs:remove', id)
+  },
+
+  clearFinishedJobs: (): void => {
+    ipcRenderer.send('jobs:clearFinished')
+  },
+
   getAllJobs: (): Promise<Job[]> => ipcRenderer.invoke('jobs:getAll'),
 
   onJobUpdated: (callback: (job: Job) => void): (() => void) => {
     const listener = (_: IpcRendererEvent, job: Job) => callback(job)
     ipcRenderer.on('jobs:updated', listener)
     return () => ipcRenderer.removeListener('jobs:updated', listener)
+  },
+
+  onJobRemoved: (callback: (id: string) => void): (() => void) => {
+    const listener = (_: IpcRendererEvent, id: string) => callback(id)
+    ipcRenderer.on('jobs:removed', listener)
+    return () => ipcRenderer.removeListener('jobs:removed', listener)
   },
 
   // Settings
@@ -49,7 +63,7 @@ const api = {
   listDir: (dirPath: string): Promise<{ name: string; fullPath: string }[]> =>
     ipcRenderer.invoke('fs:listDir', dirPath),
 
-  listGames: (dirPath: string): Promise<{ name: string; fullPath: string; videoCount: number; totalSize: number }[]> =>
+  listGames: (dirPath: string): Promise<{ name: string; fullPath: string; videoCount: number; totalSize: number; lastModified: number }[]> =>
     ipcRenderer.invoke('fs:listGames', dirPath),
 
   listVideos: (dirPath: string): Promise<{ name: string; fullPath: string; size: number; modifiedAt: number }[]> =>

@@ -1,5 +1,5 @@
 import { useLocation, NavLink } from 'react-router-dom'
-import { Home, Film, Clapperboard, Settings, ListChecks, FlaskConical, Bug, Gamepad2 } from 'lucide-react'
+import { Home, Film, Clapperboard, Settings, ListChecks, Gamepad2 } from 'lucide-react'
 import {
   Sidebar,
   SidebarContent,
@@ -86,26 +86,6 @@ export function AppSidebar() {
 
       <SidebarFooter>
         <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              render={<NavLink to="/test" />}
-              isActive={location.pathname === '/test'}
-              tooltip="Video Test"
-            >
-              <FlaskConical />
-              <span>Video Test</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              render={<NavLink to="/debug" />}
-              isActive={location.pathname === '/debug'}
-              tooltip="Video Debug"
-            >
-              <Bug />
-              <span>Video Debug</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton
               render={<NavLink to="/settings" />}

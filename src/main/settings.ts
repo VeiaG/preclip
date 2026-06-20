@@ -6,7 +6,6 @@ import type { AppSettings } from '../shared/types'
 const SETTINGS_PATH = path.join(app.getPath('userData'), 'settings.json')
 
 const defaults: AppSettings = {
-  theme: 'system',
   maxParallelJobs: 1,
   outputDir: null,
   nvidiaCapturesPath: null,

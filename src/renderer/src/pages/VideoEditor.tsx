@@ -4,7 +4,7 @@ import { ArrowLeft, Scissors, Play, Pause, Upload, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable'
-import { cn } from '@/lib/utils'
+import { cn, formatSize } from '@/lib/utils'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -39,12 +39,6 @@ function formatTime(s: number): string {
   const m = Math.floor(s / 60)
   const sec = Math.floor(s % 60)
   return `${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`
-}
-
-function formatSize(bytes: number): string {
-  if (bytes >= 1_073_741_824) return `${(bytes / 1_073_741_824).toFixed(1)} GB`
-  if (bytes >= 1_048_576)     return `${(bytes / 1_048_576).toFixed(1)} MB`
-  return `${(bytes / 1024).toFixed(0)} KB`
 }
 
 function estimateSize(inputSize: number, sizeRatio: number, scale: number, clipDuration: number, duration: number): number {
@@ -228,6 +222,34 @@ export default function VideoEditor() {
     }
   }
 
+  // Keep a stable ref to the latest togglePlay so the keydown listener
+  // doesn't need re-binding on every trim change.
+  const togglePlayRef = useRef(togglePlay)
+  togglePlayRef.current = togglePlay
+
+  // Keyboard shortcuts: Space = play/pause, ←/→ = nudge playhead (±1s, ±5s with Shift)
+  useEffect(() => {
+    if (!selectedFile) return
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
+      const v = videoRef.current
+      if (!v) return
+      if (e.code === 'Space') {
+        e.preventDefault()
+        togglePlayRef.current()
+      } else if (e.code === 'ArrowLeft') {
+        e.preventDefault()
+        v.currentTime = Math.max(0, v.currentTime - (e.shiftKey ? 5 : 1))
+      } else if (e.code === 'ArrowRight') {
+        e.preventDefault()
+        v.currentTime = Math.min(duration || v.duration, v.currentTime + (e.shiftKey ? 5 : 1))
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [selectedFile, duration])
+
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault(); setIsDragging(false)
     const f = e.dataTransfer.files[0]
@@ -331,7 +353,7 @@ export default function VideoEditor() {
         <ResizablePanelGroup orientation="horizontal" className="h-full">
 
           {/* Left: video + trim */}
-          <ResizablePanel defaultSize={58} minSize={30}>
+          <ResizablePanel defaultSize="58%" minSize="40%">
             <div className="flex flex-col h-full">
               {/* Video fills available height */}
               <div className="flex-1 bg-black min-h-0 relative">
@@ -397,7 +419,7 @@ export default function VideoEditor() {
           <ResizableHandle withHandle />
 
           {/* Right: scrollable settings — @container for responsive grids */}
-          <ResizablePanel defaultSize={42} minSize={25}>
+          <ResizablePanel defaultSize="42%" minSize="28%" maxSize="60%">
             <div className="h-full overflow-y-auto p-5 flex flex-col gap-5 @container">
 
               {/* Quality */}

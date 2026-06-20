@@ -2,18 +2,24 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Loader2, CheckCircle2, AlertCircle, Clock, XCircle,
-  FileVideo, ListChecks, X, ChevronRight,
+  FileVideo, ListChecks, X, ChevronRight, Trash2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-// import { cn } from '@/lib/utils'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { formatSize } from '@/lib/utils'
 import { useJobs } from '@/context/JobsContext'
 import type { Job, JobStatus } from '../../../shared/types'
 
-function formatSize(bytes: number) {
-  if (bytes >= 1_073_741_824) return `${(bytes / 1_073_741_824).toFixed(1)} GB`
-  if (bytes >= 1_048_576)     return `${(bytes / 1_048_576).toFixed(1)} MB`
-  return `${(bytes / 1024).toFixed(0)} KB`
-}
+const TERMINAL: JobStatus[] = ['done', 'error', 'cancelled']
 
 function savingLabel(inputSize: number, outputSize: number | undefined): React.ReactNode | null {
   if (!outputSize || inputSize <= 0) return null
@@ -46,10 +52,12 @@ interface JobRowProps {
   onCancel: (e: React.MouseEvent) => void
   onConfirmCancel: () => void
   onDismissCancel: () => void
+  onRemove: (e: React.MouseEvent) => void
 }
 
-function JobRow({ job, confirmingCancel, onClick, onCancel, onConfirmCancel, onDismissCancel }: JobRowProps) {
+function JobRow({ job, confirmingCancel, onClick, onCancel, onConfirmCancel, onDismissCancel, onRemove }: JobRowProps) {
   const canCancel = job.status === 'running' || job.status === 'queued'
+  const isFinished = TERMINAL.includes(job.status)
 
   return (
     <div className="px-4 py-3 hover:bg-accent/40 cursor-pointer transition-colors group" onClick={onClick}>
@@ -101,6 +109,15 @@ function JobRow({ job, confirmingCancel, onClick, onCancel, onConfirmCancel, onD
                   <X className="w-3.5 h-3.5" />
                 </button>
               )}
+              {isFinished && (
+                <button
+                  onClick={onRemove}
+                  className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all"
+                  title="Remove (Shift+click to skip confirm)"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              )}
               <ChevronRight className="w-4 h-4 text-muted-foreground/30" />
             </>
           )}
@@ -120,6 +137,8 @@ export default function Jobs() {
   const { jobs }  = useJobs()
   const navigate  = useNavigate()
   const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null)
+  // removeTarget: a single job to remove, or 'all' to clear every finished job
+  const [removeTarget, setRemoveTarget] = useState<Job | 'all' | null>(null)
 
   const handleCancel = (jobId: string, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -127,8 +146,21 @@ export default function Jobs() {
     setConfirmCancelId(jobId)
   }
 
+  const handleRemove = (job: Job, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (e.shiftKey) { window.api.removeJob(job.id); return }
+    setRemoveTarget(job)
+  }
+
+  const confirmRemove = () => {
+    if (removeTarget === 'all') window.api.clearFinishedJobs()
+    else if (removeTarget) window.api.removeJob(removeTarget.id)
+    setRemoveTarget(null)
+  }
+
   const running  = jobs.filter(j => j.status === 'running').length
   const queued   = jobs.filter(j => j.status === 'queued').length
+  const finished = jobs.filter(j => TERMINAL.includes(j.status)).length
 
   return (
     <div className="flex flex-col h-full">
@@ -145,9 +177,23 @@ export default function Jobs() {
                   : `${jobs.length} job${jobs.length !== 1 ? 's' : ''}`}
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => navigate('/compress')}>
-          + New job
-        </Button>
+        <div className="flex items-center gap-1.5">
+          {finished > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground gap-1.5"
+              onClick={(e) => { if (e.shiftKey) { window.api.clearFinishedJobs(); return }; setRemoveTarget('all') }}
+              title="Clear finished jobs (Shift+click to skip confirm)"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Clear finished
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={() => navigate('/compress')}>
+            + New job
+          </Button>
+        </div>
       </div>
 
       {jobs.length === 0 ? (
@@ -175,10 +221,36 @@ export default function Jobs() {
               onCancel={(e) => handleCancel(job.id, e)}
               onConfirmCancel={() => { window.api.cancelJob(confirmCancelId!); setConfirmCancelId(null) }}
               onDismissCancel={() => setConfirmCancelId(null)}
+              onRemove={(e) => handleRemove(job, e)}
             />
           ))}
         </div>
       )}
+
+      {/* Remove confirmation */}
+      <AlertDialog open={!!removeTarget} onOpenChange={(o) => !o && setRemoveTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {removeTarget === 'all' ? `Clear ${finished} finished job${finished !== 1 ? 's' : ''}?` : 'Remove job?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {removeTarget === 'all'
+                ? 'This removes all done, errored, and cancelled jobs from the list. Output files on disk are not deleted.'
+                : <>This removes <strong>{removeTarget?.name}</strong> from the list. The output file on disk is not deleted.</>}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={confirmRemove}
+            >
+              {removeTarget === 'all' ? 'Clear' : 'Remove'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

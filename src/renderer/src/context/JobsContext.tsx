@@ -13,7 +13,7 @@ export function JobsProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     window.api.getAllJobs().then(setJobs)
 
-    const cleanup = window.api.onJobUpdated((updated) => {
+    const cleanupUpdated = window.api.onJobUpdated((updated) => {
       setJobs((prev) => {
         const idx = prev.findIndex((j) => j.id === updated.id)
         if (idx >= 0) {
@@ -25,7 +25,14 @@ export function JobsProvider({ children }: { children: React.ReactNode }) {
       })
     })
 
-    return cleanup
+    const cleanupRemoved = window.api.onJobRemoved((id) => {
+      setJobs((prev) => prev.filter((j) => j.id !== id))
+    })
+
+    return () => {
+      cleanupUpdated()
+      cleanupRemoved()
+    }
   }, [])
 
   return <JobsContext.Provider value={{ jobs }}>{children}</JobsContext.Provider>

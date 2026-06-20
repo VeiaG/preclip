@@ -10,8 +10,11 @@ interface VideoKitAPI {
     metadata: JobMetadata
   }) => Promise<Job>
   cancelJob: (id: string) => void
+  removeJob: (id: string) => void
+  clearFinishedJobs: () => void
   getAllJobs: () => Promise<Job[]>
   onJobUpdated: (callback: (job: Job) => void) => () => void
+  onJobRemoved: (callback: (id: string) => void) => () => void
 
   getSettings: () => Promise<AppSettings>
   setSettings: (partial: Partial<AppSettings>) => Promise<AppSettings>
@@ -22,7 +25,7 @@ interface VideoKitAPI {
   showInFolder: (filePath: string) => void
   openPath: (p: string) => void
   listDir: (dirPath: string) => Promise<{ name: string; fullPath: string }[]>
-  listGames: (dirPath: string) => Promise<{ name: string; fullPath: string; videoCount: number; totalSize: number }[]>
+  listGames: (dirPath: string) => Promise<{ name: string; fullPath: string; videoCount: number; totalSize: number; lastModified: number }[]>
   listVideos: (dirPath: string) => Promise<{ name: string; fullPath: string; size: number; modifiedAt: number }[]>
 
   getGameCover: (gameName: string) => Promise<string | null>

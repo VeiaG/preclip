@@ -8,8 +8,6 @@ import Jobs from './pages/Jobs'
 import JobDetail from './pages/JobDetail'
 import GifConverter from './pages/GifConverter'
 import Settings from './pages/Settings'
-import VideoTest from './pages/VideoTest'
-import VideoDebug from './pages/VideoDebug'
 import Hub from './pages/Hub'
 import GameFolder from './pages/GameFolder'
 
@@ -29,8 +27,6 @@ function App(): React.JSX.Element {
                 <Route path="/hub" element={<Hub />} />
                 <Route path="/hub/folder" element={<GameFolder />} />
                 <Route path="/editor" element={<VideoEditor />} />
-                <Route path="/test" element={<VideoTest />} />
-                <Route path="/debug" element={<VideoDebug />} />
               </Route>
             </Routes>
           </JobsProvider>

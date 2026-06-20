@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Gamepad2, FolderOpen, RefreshCw, Settings, ChevronRight, Trash2, X } from 'lucide-react'
+import { Gamepad2, FolderOpen, RefreshCw, Settings, ChevronRight, Trash2, X, SortAsc } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   ContextMenu,
@@ -19,7 +19,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { cn } from '@/lib/utils'
+import { cn, formatSize } from '@/lib/utils'
 import { getGameGradient, getGameInitials } from '@/lib/gameCovers'
 import type { AppSettings } from '../../../shared/types'
 
@@ -28,13 +28,10 @@ interface GameFolder {
   fullPath: string
   videoCount: number
   totalSize: number
+  lastModified: number
 }
 
-function formatSize(bytes: number) {
-  if (bytes >= 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024 / 1024).toFixed(1)} GB`
-  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`
-  return `${(bytes / 1024).toFixed(0)} KB`
-}
+type SortKey = 'recent' | 'name' | 'size'
 
 // ── Game Card ─────────────────────────────────────────────────────────────────
 
@@ -159,6 +156,7 @@ export default function Hub() {
   const [games, setGames] = useState<GameFolder[]>([])
   const [loading, setLoading] = useState(false)
   const [mediaPort, setMediaPort] = useState(0)
+  const [sort, setSort] = useState<SortKey>('recent')
 
   // Selection
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -241,6 +239,18 @@ export default function Hub() {
 
   const totalVideos = games.reduce((s, g) => s + g.videoCount, 0)
   const totalSize = games.reduce((s, g) => s + g.totalSize, 0)
+
+  const sorted = [...games].sort((a, b) => {
+    if (sort === 'recent') return b.lastModified - a.lastModified
+    if (sort === 'name') return a.name.localeCompare(b.name)
+    return b.totalSize - a.totalSize
+  })
+
+  const SORTS: { key: SortKey; label: string }[] = [
+    { key: 'recent', label: 'Recent' },
+    { key: 'name', label: 'Name' },
+    { key: 'size', label: 'Size' },
+  ]
 
   return (
     <div className="flex flex-col h-full relative">
@@ -329,9 +339,26 @@ export default function Hub() {
               <span>
                 <span className="font-semibold text-foreground">{formatSize(totalSize)}</span> total
               </span>
+              <span className="flex-1" />
+              <SortAsc className="w-3.5 h-3.5" />
+              <span className="mr-1">Sort:</span>
+              {SORTS.map(({ key, label }) => (
+                <button
+                  key={key}
+                  onClick={() => setSort(key)}
+                  className={cn(
+                    'text-xs px-2 py-0.5 rounded-md transition-colors',
+                    sort === key
+                      ? 'bg-primary text-primary-foreground font-medium'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted',
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 pb-20">
-              {games.map((game) => (
+              {sorted.map((game) => (
                 <ContextMenu key={game.fullPath}>
                   <ContextMenuTrigger className="block">
                     <GameCard

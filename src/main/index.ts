@@ -5,7 +5,7 @@ import fs from 'fs'
 import http from 'http'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import { addJob, cancelJob, getAllJobs, getRunningJobs } from './jobQueue'
+import { addJob, cancelJob, removeJob, clearFinishedJobs, getAllJobs, getRunningJobs } from './jobQueue'
 import { getSettings, setSettings } from './settings'
 import { generateThumbnail, clearThumbnailCache, getThumbnailCacheSize, getThumbnailCacheDir } from './thumbnails'
 import { generateFrames, clearFramesCache, probeAudioTracks } from './frames'
@@ -173,6 +173,8 @@ app.whenReady().then(() => {
   // Jobs
   ipcMain.handle('jobs:add', (_, opts) => addJob(mainWindow, opts))
   ipcMain.on('jobs:cancel', (_, id: string) => cancelJob(mainWindow, id))
+  ipcMain.on('jobs:remove', (_, id: string) => removeJob(mainWindow, id))
+  ipcMain.on('jobs:clearFinished', () => clearFinishedJobs(mainWindow))
   ipcMain.handle('jobs:getAll', () => getAllJobs())
 
   // Settings
@@ -220,15 +222,20 @@ app.whenReady().then(() => {
         const fullPath = path.join(dirPath, dir.name)
         let videoCount = 0
         let totalSize = 0
+        let lastModified = 0
         try {
           for (const f of fs.readdirSync(fullPath)) {
             if (videoExts.has(path.extname(f).toLowerCase())) {
               videoCount++
-              try { totalSize += fs.statSync(path.join(fullPath, f)).size } catch {}
+              try {
+                const stat = fs.statSync(path.join(fullPath, f))
+                totalSize += stat.size
+                if (stat.mtimeMs > lastModified) lastModified = stat.mtimeMs
+              } catch {}
             }
           }
         } catch {}
-        return { name: dir.name, fullPath, videoCount, totalSize }
+        return { name: dir.name, fullPath, videoCount, totalSize, lastModified }
       })
       .filter(g => g.videoCount > 0)
   })

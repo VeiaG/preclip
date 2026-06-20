@@ -1,6 +1,6 @@
 import type { BrowserWindow } from 'electron'
 import fs from 'fs'
-import type { Job, JobType, JobMetadata, CompressMetadata } from '../shared/types'
+import type { Job, JobType, JobStatus, JobMetadata, CompressMetadata } from '../shared/types'
 import { runCompress, buildOutputPath } from './compress'
 import { getSettings } from './settings'
 import type ffmpeg from 'fluent-ffmpeg'
@@ -106,6 +106,26 @@ export function cancelJob(win: BrowserWindow, id: string): void {
     activeCommands.get(id)?.kill('SIGKILL')
     activeCommands.delete(id)
     // runningCount-- and maybeStartNext handled in startJob's finally block
+  }
+}
+
+const TERMINAL: JobStatus[] = ['done', 'error', 'cancelled']
+
+/** Remove a single finished job. Active (running/queued) jobs are left untouched. */
+export function removeJob(win: BrowserWindow, id: string): void {
+  const job = jobs.get(id)
+  if (!job || !TERMINAL.includes(job.status)) return
+  jobs.delete(id)
+  win.webContents.send('jobs:removed', id)
+}
+
+/** Remove all finished (done/error/cancelled) jobs. */
+export function clearFinishedJobs(win: BrowserWindow): void {
+  for (const job of [...jobs.values()]) {
+    if (TERMINAL.includes(job.status)) {
+      jobs.delete(job.id)
+      win.webContents.send('jobs:removed', job.id)
+    }
   }
 }
 

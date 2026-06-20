@@ -19,7 +19,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { cn } from '@/lib/utils'
+import { cn, formatSize } from '@/lib/utils'
 import { getGameGradient, getGameInitials } from '@/lib/gameCovers'
 
 interface GameInfo {
@@ -37,12 +37,6 @@ interface VideoFile {
 }
 
 type SortKey = 'date' | 'name' | 'size'
-
-function formatSize(bytes: number) {
-  if (bytes >= 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024 / 1024).toFixed(1)} GB`
-  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`
-  return `${(bytes / 1024).toFixed(0)} KB`
-}
 
 function formatDate(ts: number) {
   return new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
@@ -268,7 +262,7 @@ export default function GameFolder() {
   const totalSize = videos.reduce((s, v) => s + v.size, 0)
 
   const SORTS: { key: SortKey; label: string }[] = [
-    { key: 'date', label: 'Date' },
+    { key: 'date', label: 'Recent' },
     { key: 'name', label: 'Name' },
     { key: 'size', label: 'Size' },
   ]

@@ -35,7 +35,6 @@ export interface Job {
 }
 
 export interface AppSettings {
-  theme: 'light' | 'dark' | 'system'
   maxParallelJobs: number
   outputDir: string | null
   nvidiaCapturesPath: string | null
