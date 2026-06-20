@@ -183,7 +183,7 @@ export default function Settings() {
         <div className="border rounded-xl px-4 py-3 space-y-1">
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Version</span>
-            <span>1.0.0</span>
+            <span>0.0.1</span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Electron</span>

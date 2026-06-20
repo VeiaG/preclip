@@ -6,11 +6,9 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarRail,
 } from '@/components/ui/sidebar'
 import { useJobs } from '@/context/JobsContext'
 
@@ -30,18 +28,6 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon" >
-      <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <div className="flex items-center gap-2 px-2 py-1">
-              <Film className="size-4 shrink-0 text-primary" />
-              <span className="font-semibold text-sm group-data-[collapsible=icon]:hidden">
-                VideoKit
-              </span>
-            </div>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarHeader>
 
       <SidebarContent>
         <SidebarGroup>
@@ -99,7 +85,6 @@ export function AppSidebar() {
         </SidebarMenu>
       </SidebarFooter>
 
-      <SidebarRail />
     </Sidebar>
   )
 }

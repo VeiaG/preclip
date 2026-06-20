@@ -109,12 +109,12 @@ function createWindow(): BrowserWindow {
     frame: false,
 
     // macOS Native Blur Effect
-    vibrancy: 'fullscreen-ui', 
+    vibrancy: 'fullscreen-ui',
 
     // Windows 11 Native Blur Effect
     backgroundMaterial: 'acrylic',
     // backgroundMaterial:'mica',
-    ...(process.platform === 'linux' ? { icon } : {}),
+    icon,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
@@ -158,7 +158,7 @@ function createWindow(): BrowserWindow {
 }
 
 app.whenReady().then(() => {
-  electronApp.setAppUserModelId('com.electron')
+  electronApp.setAppUserModelId('com.preclip.app')
   app.on('browser-window-created', (_, window) => optimizer.watchWindowShortcuts(window))
 
   // Window controls

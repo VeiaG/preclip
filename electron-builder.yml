@@ -1,5 +1,5 @@
-appId: com.electron.app
-productName: video-converter
+appId: com.preclip.app
+productName: PreClip
 directories:
   buildResources: build
 files:
@@ -14,7 +14,7 @@ asarUnpack:
   - node_modules/ffmpeg-static/**
   - node_modules/ffprobe-static/**
 win:
-  executableName: video-converter
+  executableName: PreClip
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}

@@ -23,7 +23,7 @@ export function TitleBar({ sidebarOpen, onSidebarToggle }: TitleBarProps) {
       <div style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
         <button
           onClick={onSidebarToggle}
-          className="flex items-center justify-center h-9 w-10 text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+          className="flex items-center justify-center h-9 w-12 text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
           title={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
         >
           <PanelLeft className="size-4" />
@@ -32,8 +32,7 @@ export function TitleBar({ sidebarOpen, onSidebarToggle }: TitleBarProps) {
 
       {/* App branding */}
       <div className="flex items-center gap-1.5 px-1">
-        <Film className="size-3.5 text-sidebar-primary shrink-0" />
-        <span className="text-[13px] font-semibold text-sidebar-foreground">VideoKit</span>
+        <span className="text-[16px] font-semibold text-sidebar-foreground">Pre<span className="text-sidebar-primary">Clip</span></span>
       </div>
 
       {/* Drag spacer */}

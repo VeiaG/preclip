@@ -1,10 +1,10 @@
 {
-  "name": "video-converter",
+  "name": "preclip",
   "version": "1.0.0",
-  "description": "An Electron application with React and TypeScript",
+  "description": "PreClip — video clip manager and converter",
   "main": "./out/main/index.js",
-  "author": "example.com",
-  "homepage": "https://electron-vite.org",
+  "author": "VeiaG",
+  "homepage": "https://veiag.dev",
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint --cache .",
