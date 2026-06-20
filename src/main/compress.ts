@@ -1,10 +1,11 @@
 import ffmpeg from 'fluent-ffmpeg'
 import ffmpegStatic from 'ffmpeg-static'
+import fs from 'fs'
 import path from 'path'
 import type { CompressMetadata } from '../shared/types'
 
 if (ffmpegStatic) {
-  ffmpeg.setFfmpegPath(ffmpegStatic)
+  ffmpeg.setFfmpegPath(ffmpegStatic.replace('app.asar', 'app.asar.unpacked'))
 }
 
 function qualityToCrf(quality: number, isVp9: boolean): number {
@@ -21,7 +22,14 @@ export function buildOutputPath(
   const dir = outputDir ?? path.dirname(inputPath)
   const ext = path.extname(inputPath)
   const base = path.basename(inputPath, ext)
-  return path.join(dir, `${base}_${suffix}.${format}`)
+  const candidate = path.join(dir, `${base}_${suffix}.${format}`)
+  if (!fs.existsSync(candidate)) return candidate
+  let counter = 2
+  while (true) {
+    const next = path.join(dir, `${base}_${suffix}_${counter}.${format}`)
+    if (!fs.existsSync(next)) return next
+    counter++
+  }
 }
 
 export function runCompress(

@@ -216,7 +216,7 @@ export default function JobDetail() {
 
       {/* Resizable split — always */}
       <div className="flex-1 min-h-0">
-        <ResizablePanelGroup direction="horizontal" className="h-full">
+        <ResizablePanelGroup orientation="horizontal" className="h-full">
 
           {/* Left: video preview */}
           <ResizablePanel defaultSize={62} minSize={30}>

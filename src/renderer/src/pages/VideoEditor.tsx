@@ -319,7 +319,7 @@ export default function VideoEditor() {
 
       {/* Resizable split — always */}
       <div className="flex-1 min-h-0">
-        <ResizablePanelGroup direction="horizontal" className="h-full">
+        <ResizablePanelGroup orientation="horizontal" className="h-full">
 
           {/* Left: video + trim */}
           <ResizablePanel defaultSize={58} minSize={30}>

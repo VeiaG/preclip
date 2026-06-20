@@ -6,7 +6,7 @@ import crypto from 'crypto'
 import { app } from 'electron'
 
 if (ffmpegStatic) {
-  ffmpeg.setFfmpegPath(ffmpegStatic)
+  ffmpeg.setFfmpegPath(ffmpegStatic.replace('app.asar', 'app.asar.unpacked'))
 }
 
 let cacheDir: string | null = null

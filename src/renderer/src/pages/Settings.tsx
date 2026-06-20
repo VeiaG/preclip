@@ -1,14 +1,9 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Sun, Moon, Monitor, FolderOpen, Minus, Plus, Gamepad2, Trash2, ExternalLink } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import {  FolderOpen, Minus, Plus, Gamepad2, Trash2, ExternalLink } from 'lucide-react'
+// import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import type { AppSettings } from '../../../shared/types'
 
-const themeOptions = [
-  { value: 'light', label: 'Light', icon: Sun },
-  { value: 'dark', label: 'Dark', icon: Moon },
-  { value: 'system', label: 'System', icon: Monitor },
-] as const
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
