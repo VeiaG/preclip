@@ -78,6 +78,10 @@ export function clearThumbnailCache(): void {
   }
 }
 
+export function getThumbnailCacheDir(): string {
+  return getCacheDir()
+}
+
 export function getThumbnailCacheSize(): number {
   const dir = getCacheDir()
   return fs.readdirSync(dir).reduce((total, f) => {

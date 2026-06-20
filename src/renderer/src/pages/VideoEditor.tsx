@@ -19,10 +19,10 @@ type Format = (typeof FORMATS)[number]
 type QualityKey = 'low' | 'medium' | 'high' | 'original'
 
 const QUALITY_PRESETS = [
-  { key: 'low'      as QualityKey, label: 'Low',      subtitle: 'Smaller file',  quality: 25,  sizeRatio: 0.08  },
-  { key: 'medium'   as QualityKey, label: 'Medium',   subtitle: 'Balanced',      quality: 55,  sizeRatio: 0.20  },
-  { key: 'high'     as QualityKey, label: 'High',     subtitle: 'Recommended',   quality: 80,  sizeRatio: 0.40  },
-  { key: 'original' as QualityKey, label: 'Original', subtitle: 'Best quality',  quality: 100, sizeRatio: 0.80  },
+  { key: 'low'      as QualityKey, label: 'Low',      subtitle: 'Smaller file',  quality: 25,  sizeRatio: 0.08 },
+  { key: 'medium'   as QualityKey, label: 'Medium',   subtitle: 'Balanced',      quality: 55,  sizeRatio: 0.20 },
+  { key: 'high'     as QualityKey, label: 'High',     subtitle: 'Recommended',   quality: 80,  sizeRatio: 0.40 },
+  { key: 'original' as QualityKey, label: 'Original', subtitle: 'Best quality',  quality: 100, sizeRatio: 0.80 },
 ]
 
 const SCALES = [
@@ -142,26 +142,13 @@ function OptionButton({ selected, onClick, children }: { selected: boolean; onCl
     <button
       onClick={onClick}
       className={cn(
-        'flex flex-col items-center gap-0.5 p-3 rounded-xl border text-center transition-all',
+        'flex flex-col items-center gap-0.5 p-2.5 rounded-xl border text-center transition-all',
         selected ? 'border-primary bg-primary/10' : 'border-border bg-background hover:bg-accent',
       )}
     >
       {children}
     </button>
   )
-}
-
-// ── Breakpoint hook ───────────────────────────────────────────────────────────
-
-function useIsWide(breakpoint = 1024) {
-  const [isWide, setIsWide] = useState(() => window.innerWidth >= breakpoint)
-  useEffect(() => {
-    const mq = window.matchMedia(`(min-width: ${breakpoint}px)`)
-    const handler = (e: MediaQueryListEvent) => setIsWide(e.matches)
-    mq.addEventListener('change', handler)
-    return () => mq.removeEventListener('change', handler)
-  }, [breakpoint])
-  return isWide
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -180,15 +167,13 @@ export default function VideoEditor() {
   const [currentTime, setCurrentTime] = useState(0)
   const [isPlaying,   setIsPlaying]   = useState(false)
   const [videoMeta,   setVideoMeta]   = useState({ width: 0, height: 0 })
-
-  const [trimStart, setTrimStart] = useState(0)
-  const [trimEnd,   setTrimEnd]   = useState(0)
-
-  const [qualityKey, setQualityKey] = useState<QualityKey>('high')
-  const [scale,      setScale]      = useState(1)
-  const [format,     setFormat]     = useState<Format>('mp4')
-  const [frames,     setFrames]     = useState<string[]>([])
-  const [submitting, setSubmitting] = useState(false)
+  const [trimStart,   setTrimStart]   = useState(0)
+  const [trimEnd,     setTrimEnd]     = useState(0)
+  const [qualityKey,  setQualityKey]  = useState<QualityKey>('high')
+  const [scale,       setScale]       = useState(1)
+  const [format,      setFormat]      = useState<Format>('mp4')
+  const [frames,      setFrames]      = useState<string[]>([])
+  const [submitting,  setSubmitting]  = useState(false)
 
   useEffect(() => { window.api.mediaPort().then(setMediaPort) }, [])
 
@@ -273,7 +258,6 @@ export default function VideoEditor() {
     }
   }
 
-  const isWide       = useIsWide()
   const clipDuration = trimEnd - trimStart
   const isEditorMode = stateFile !== null
 
@@ -314,197 +298,166 @@ export default function VideoEditor() {
     )
   }
 
-  // ── Shared sections ───────────────────────────────────────────────────────────
-
-  const headerEl = (
-    <div className="px-4 py-3 border-b flex items-center gap-3 shrink-0">
-      <button onClick={() => navigate(-1)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0">
-        <ArrowLeft className="w-4 h-4" />
-      </button>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold truncate">{selectedFile.name}</p>
-        <p className="text-xs text-muted-foreground">{formatSize(selectedFile.size)}</p>
-      </div>
-      {!isEditorMode && (
-        <button onClick={() => { setSelectedFile(null); setFrames([]) }} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0">
-          <X className="w-4 h-4" />
-        </button>
-      )}
-    </div>
-  )
-
-  const videoEl = (extraClass = '') => (
-    <div className={cn('relative bg-black shrink-0', extraClass)}>
-      <video
-        ref={videoRef}
-        src={videoSrc}
-        className="w-full h-full object-contain"
-        onLoadedMetadata={handleLoadedMetadata}
-        onTimeUpdate={handleTimeUpdate}
-        onPlay={() => setIsPlaying(true)}
-        onPause={() => setIsPlaying(false)}
-        preload="metadata"
-      />
-      <button onClick={togglePlay} className="absolute inset-0 flex items-center justify-center group">
-        <div className={cn('p-3 rounded-full bg-black/50 backdrop-blur-sm transition-opacity', isPlaying ? 'opacity-0 group-hover:opacity-100' : 'opacity-100')}>
-          {isPlaying ? <Pause className="w-5 h-5 text-white" /> : <Play className="w-5 h-5 text-white" />}
-        </div>
-      </button>
-    </div>
-  )
-
-  const trimEl = (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold tracking-widest uppercase text-muted-foreground flex items-center gap-1.5">
-          <Scissors className="w-3.5 h-3.5" /> Trim
-        </span>
-        <div className="flex items-center gap-2 text-xs">
-          <span className="tabular-nums text-muted-foreground">
-            Selected <span className="font-medium text-foreground">{formatTime(clipDuration)}</span> / {formatTime(duration)}
-          </span>
-          <button onClick={() => { setTrimStart(0); setTrimEnd(duration) }} className="text-primary hover:underline">
-            Reset
-          </button>
-        </div>
-      </div>
-
-      <TrimBar
-        duration={duration} start={trimStart} end={trimEnd}
-        currentTime={currentTime} frames={frames}
-        onChange={handleTrimChange} onSeek={handleSeek}
-      />
-
-      <div className="flex items-center gap-1.5 text-xs">
-        <span className="text-muted-foreground shrink-0">Start</span>
-        <button onClick={() => handleTrimChange(Math.max(0, trimStart - 1), trimEnd)} className="w-6 h-6 rounded-md bg-muted hover:bg-accent flex items-center justify-center shrink-0">−</button>
-        <span className="tabular-nums font-medium bg-muted px-2 py-1 rounded-md text-center w-14 shrink-0">{formatTime(trimStart)}</span>
-        <button onClick={() => handleTrimChange(Math.min(trimStart + 1, trimEnd - 0.25), trimEnd)} className="w-6 h-6 rounded-md bg-muted hover:bg-accent flex items-center justify-center shrink-0">+</button>
-        <button
-          onClick={() => handleTrimChange(trimStart, currentTime > trimStart ? currentTime : trimEnd)}
-          className="flex-1 px-2 py-1 rounded-md border hover:bg-accent transition-colors text-center min-w-0"
-        >
-          Set end to playhead
-        </button>
-        <button onClick={() => handleTrimChange(trimStart, Math.max(trimEnd - 1, trimStart + 0.25))} className="w-6 h-6 rounded-md bg-muted hover:bg-accent flex items-center justify-center shrink-0">−</button>
-        <span className="tabular-nums font-medium bg-muted px-2 py-1 rounded-md text-center w-14 shrink-0">{formatTime(trimEnd)}</span>
-        <button onClick={() => handleTrimChange(trimStart, Math.min(trimEnd + 1, duration))} className="w-6 h-6 rounded-md bg-muted hover:bg-accent flex items-center justify-center shrink-0">+</button>
-        <span className="text-muted-foreground shrink-0">End</span>
-      </div>
-    </div>
-  )
-
-  const settingsEl = (
-    <>
-      {/* Quality */}
-      <div className="space-y-3">
-        <span className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block">Quality</span>
-        <div className="grid grid-cols-4 gap-2">
-          {QUALITY_PRESETS.map((p) => {
-            const est      = estimateSize(selectedFile.size, p.sizeRatio, scale, clipDuration, duration)
-            const selected = qualityKey === p.key
-            return (
-              <OptionButton key={p.key} selected={selected} onClick={() => setQualityKey(p.key)}>
-                <span className="text-sm font-bold">{p.label}</span>
-                <span className="text-xs text-muted-foreground leading-tight">{p.subtitle}</span>
-                <span className={cn('text-xs font-medium mt-0.5', selected ? 'text-primary' : 'text-muted-foreground')}>
-                  ≈ {formatSize(est)}
-                </span>
-              </OptionButton>
-            )
-          })}
-        </div>
-      </div>
-
-      <Separator />
-
-      {/* Resolution */}
-      <div className="space-y-3">
-        <span className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block">Resolution</span>
-        <div className="grid grid-cols-4 gap-2">
-          {SCALES.map(({ label, value }) => {
-            const h = videoMeta.height > 0 ? Math.round(videoMeta.height * value / 2) * 2 : null
-            return (
-              <OptionButton key={value} selected={scale === value} onClick={() => setScale(value)}>
-                <span className="text-sm font-bold">{label}</span>
-                <span className="text-xs text-muted-foreground">{h ? `${h}p` : '—'}</span>
-              </OptionButton>
-            )
-          })}
-        </div>
-      </div>
-
-      <Separator />
-
-      {/* Format */}
-      <div className="space-y-3">
-        <span className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block">Format</span>
-        <div className="grid grid-cols-3 gap-2">
-          {FORMATS.map((fmt) => (
-            <button
-              key={fmt}
-              onClick={() => setFormat(fmt)}
-              className={cn(
-                'py-2.5 text-sm border rounded-xl font-semibold uppercase tracking-wide transition-all',
-                format === fmt ? 'bg-primary text-primary-foreground border-primary' : 'border-border bg-background hover:bg-accent',
-              )}
-            >
-              {fmt}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <Button onClick={handleSubmit} className="w-full" disabled={submitting || duration === 0}>
-        {submitting ? 'Adding…' : isEditorMode ? 'Trim & Compress' : 'Add to Queue'}
-      </Button>
-    </>
-  )
-
-  // ── Wide layout (lg+) — resizable left/right panels ──────────────────────────
-  if (isWide) {
-    return (
-      <div className="flex flex-col h-full">
-        {headerEl}
-        <div className="flex-1 min-h-0">
-          <ResizablePanelGroup direction="horizontal" className="h-full">
-            {/* Left: video fills height, trim pinned at bottom */}
-            <ResizablePanel defaultSize={58} minSize={35}>
-              <div className="flex flex-col h-full">
-                <div className="flex-1 bg-black min-h-0 relative">
-                  {videoEl('absolute inset-0')}
-                </div>
-                <div className="p-4 border-t shrink-0 space-y-3">
-                  {trimEl}
-                </div>
-              </div>
-            </ResizablePanel>
-
-            <ResizableHandle withHandle />
-
-            {/* Right: scrollable settings */}
-            <ResizablePanel defaultSize={42} minSize={30}>
-              <div className="h-full overflow-y-auto p-5 flex flex-col gap-5">
-                {settingsEl}
-              </div>
-            </ResizablePanel>
-          </ResizablePanelGroup>
-        </div>
-      </div>
-    )
-  }
-
-  // ── Narrow layout (< lg) — single column ─────────────────────────────────────
+  // ── Editor ────────────────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col h-full">
-      {headerEl}
-      <div className="flex-1 overflow-y-auto">
-        {videoEl('aspect-video w-full max-h-64')}
-        <div className="p-5 flex flex-col gap-5">
-          {trimEl}
-          <Separator />
-          {settingsEl}
+      {/* Header */}
+      <div className="px-4 py-3 border-b flex items-center gap-3 shrink-0">
+        <button onClick={() => navigate(-1)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0">
+          <ArrowLeft className="w-4 h-4" />
+        </button>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold truncate">{selectedFile.name}</p>
+          <p className="text-xs text-muted-foreground">{formatSize(selectedFile.size)}</p>
         </div>
+        {!isEditorMode && (
+          <button onClick={() => { setSelectedFile(null); setFrames([]) }} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0">
+            <X className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+
+      {/* Resizable split — always */}
+      <div className="flex-1 min-h-0">
+        <ResizablePanelGroup direction="horizontal" className="h-full">
+
+          {/* Left: video + trim */}
+          <ResizablePanel defaultSize={58} minSize={30}>
+            <div className="flex flex-col h-full">
+              {/* Video fills available height */}
+              <div className="flex-1 bg-black min-h-0 relative">
+                <video
+                  ref={videoRef}
+                  src={videoSrc}
+                  className="absolute inset-0 w-full h-full object-contain"
+                  onLoadedMetadata={handleLoadedMetadata}
+                  onTimeUpdate={handleTimeUpdate}
+                  onPlay={() => setIsPlaying(true)}
+                  onPause={() => setIsPlaying(false)}
+                  preload="metadata"
+                />
+                <button onClick={togglePlay} className="absolute inset-0 flex items-center justify-center group">
+                  <div className={cn('p-3 rounded-full bg-black/50 backdrop-blur-sm transition-opacity', isPlaying ? 'opacity-0 group-hover:opacity-100' : 'opacity-100')}>
+                    {isPlaying ? <Pause className="w-5 h-5 text-white" /> : <Play className="w-5 h-5 text-white" />}
+                  </div>
+                </button>
+              </div>
+
+              {/* Trim bar pinned at bottom of left panel */}
+              <div className="p-4 border-t shrink-0 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold tracking-widest uppercase text-muted-foreground flex items-center gap-1.5">
+                    <Scissors className="w-3.5 h-3.5" /> Trim
+                  </span>
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="tabular-nums text-muted-foreground">
+                      Selected <span className="font-medium text-foreground">{formatTime(clipDuration)}</span> / {formatTime(duration)}
+                    </span>
+                    <button onClick={() => { setTrimStart(0); setTrimEnd(duration) }} className="text-primary hover:underline">
+                      Reset
+                    </button>
+                  </div>
+                </div>
+
+                <TrimBar
+                  duration={duration} start={trimStart} end={trimEnd}
+                  currentTime={currentTime} frames={frames}
+                  onChange={handleTrimChange} onSeek={handleSeek}
+                />
+
+                <div className="flex items-center gap-1.5 text-xs">
+                  <span className="text-muted-foreground shrink-0">Start</span>
+                  <button onClick={() => handleTrimChange(Math.max(0, trimStart - 1), trimEnd)} className="w-6 h-6 rounded-md bg-muted hover:bg-accent flex items-center justify-center shrink-0">−</button>
+                  <span className="tabular-nums font-medium bg-muted px-2 py-1 rounded-md text-center w-14 shrink-0">{formatTime(trimStart)}</span>
+                  <button onClick={() => handleTrimChange(Math.min(trimStart + 1, trimEnd - 0.25), trimEnd)} className="w-6 h-6 rounded-md bg-muted hover:bg-accent flex items-center justify-center shrink-0">+</button>
+                  <button
+                    onClick={() => handleTrimChange(trimStart, currentTime > trimStart ? currentTime : trimEnd)}
+                    className="flex-1 px-2 py-1 rounded-md border hover:bg-accent transition-colors text-center min-w-0"
+                  >
+                    Set end to playhead
+                  </button>
+                  <button onClick={() => handleTrimChange(trimStart, Math.max(trimEnd - 1, trimStart + 0.25))} className="w-6 h-6 rounded-md bg-muted hover:bg-accent flex items-center justify-center shrink-0">−</button>
+                  <span className="tabular-nums font-medium bg-muted px-2 py-1 rounded-md text-center w-14 shrink-0">{formatTime(trimEnd)}</span>
+                  <button onClick={() => handleTrimChange(trimStart, Math.min(trimEnd + 1, duration))} className="w-6 h-6 rounded-md bg-muted hover:bg-accent flex items-center justify-center shrink-0">+</button>
+                  <span className="text-muted-foreground shrink-0">End</span>
+                </div>
+              </div>
+            </div>
+          </ResizablePanel>
+
+          <ResizableHandle withHandle />
+
+          {/* Right: scrollable settings — @container for responsive grids */}
+          <ResizablePanel defaultSize={42} minSize={25}>
+            <div className="h-full overflow-y-auto p-5 flex flex-col gap-5 @container">
+
+              {/* Quality */}
+              <div className="space-y-3">
+                <span className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block">Quality</span>
+                <div className="grid grid-cols-2 @xs:grid-cols-4 gap-2">
+                  {QUALITY_PRESETS.map((p) => {
+                    const est      = estimateSize(selectedFile.size, p.sizeRatio, scale, clipDuration, duration)
+                    const selected = qualityKey === p.key
+                    return (
+                      <OptionButton key={p.key} selected={selected} onClick={() => setQualityKey(p.key)}>
+                        <span className="text-sm font-bold">{p.label}</span>
+                        <span className="text-xs text-muted-foreground leading-tight">{p.subtitle}</span>
+                        <span className={cn('text-xs font-medium mt-0.5', selected ? 'text-primary' : 'text-muted-foreground')}>
+                          ≈ {formatSize(est)}
+                        </span>
+                      </OptionButton>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Resolution */}
+              <div className="space-y-3">
+                <span className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block">Resolution</span>
+                <div className="grid grid-cols-2 @xs:grid-cols-4 gap-2">
+                  {SCALES.map(({ label, value }) => {
+                    const h = videoMeta.height > 0 ? Math.round(videoMeta.height * value / 2) * 2 : null
+                    return (
+                      <OptionButton key={value} selected={scale === value} onClick={() => setScale(value)}>
+                        <span className="text-sm font-bold">{label}</span>
+                        <span className="text-xs text-muted-foreground">{h ? `${h}p` : '—'}</span>
+                      </OptionButton>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Format */}
+              <div className="space-y-3">
+                <span className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block">Format</span>
+                <div className="grid grid-cols-3 gap-2">
+                  {FORMATS.map((fmt) => (
+                    <button
+                      key={fmt}
+                      onClick={() => setFormat(fmt)}
+                      className={cn(
+                        'py-2.5 text-sm border rounded-xl font-semibold uppercase tracking-wide transition-all',
+                        format === fmt ? 'bg-primary text-primary-foreground border-primary' : 'border-border bg-background hover:bg-accent',
+                      )}
+                    >
+                      {fmt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <Button onClick={handleSubmit} className="w-full" disabled={submitting || duration === 0}>
+                {submitting ? 'Adding…' : isEditorMode ? 'Trim & Compress' : 'Add to Queue'}
+              </Button>
+
+            </div>
+          </ResizablePanel>
+
+        </ResizablePanelGroup>
       </div>
     </div>
   )

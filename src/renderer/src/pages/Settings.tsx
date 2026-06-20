@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Sun, Moon, Monitor, FolderOpen, Minus, Plus, Gamepad2, Trash2 } from 'lucide-react'
+import { Sun, Moon, Monitor, FolderOpen, Minus, Plus, Gamepad2, Trash2, ExternalLink } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import type { AppSettings } from '../../../shared/types'
@@ -28,6 +28,7 @@ function formatSize(bytes: number) {
 export default function Settings() {
   const [settings, setSettingsState] = useState<AppSettings | null>(null)
   const [cacheSize, setCacheSize] = useState<number>(0)
+  const [cacheDir, setCacheDir] = useState<string>('')
   const [clearing, setClearing] = useState(false)
 
   const refreshCacheSize = useCallback(() => {
@@ -37,6 +38,7 @@ export default function Settings() {
   useEffect(() => {
     window.api.getSettings().then(setSettingsState)
     refreshCacheSize()
+    window.api.getThumbnailCacheDir().then(setCacheDir)
   }, [refreshCacheSize])
 
   const save = async (partial: Partial<AppSettings>) => {
@@ -62,6 +64,7 @@ export default function Settings() {
   }
 
   return (
+    <div className="h-full overflow-y-auto">
     <div className="p-8 max-w-lg space-y-8">
       <h1 className="text-2xl font-bold">Settings</h1>
 
@@ -161,16 +164,28 @@ export default function Settings() {
                 {formatSize(cacheSize)} of preview images
               </p>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleClearCache}
-              disabled={clearing || cacheSize === 0}
-              className="gap-1.5"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              {clearing ? 'Clearing…' : 'Clear'}
-            </Button>
+            <div className="flex items-center gap-1.5">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => cacheDir && window.api.openPath(cacheDir)}
+                disabled={!cacheDir}
+                className="gap-1.5"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                Open folder
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleClearCache}
+                disabled={clearing || cacheSize === 0}
+                className="gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                {clearing ? 'Clearing…' : 'Clear'}
+              </Button>
+            </div>
           </div>
         </div>
       </section>
@@ -188,6 +203,7 @@ export default function Settings() {
           </div>
         </div>
       </section>
+    </div>
     </div>
   )
 }

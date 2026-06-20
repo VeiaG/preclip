@@ -42,6 +42,10 @@ const api = {
     ipcRenderer.send('shell:showInFolder', filePath)
   },
 
+  openPath: (p: string): void => {
+    ipcRenderer.send('shell:openPath', p)
+  },
+
   listDir: (dirPath: string): Promise<{ name: string; fullPath: string }[]> =>
     ipcRenderer.invoke('fs:listDir', dirPath),
 
@@ -60,6 +64,7 @@ const api = {
     ipcRenderer.invoke('thumbnails:get', videoPath),
   clearThumbnailCache: (): Promise<void> => ipcRenderer.invoke('thumbnails:clearCache'),
   getThumbnailCacheSize: (): Promise<number> => ipcRenderer.invoke('thumbnails:cacheSize'),
+  getThumbnailCacheDir: (): Promise<string> => ipcRenderer.invoke('thumbnails:cacheDir'),
 
   // Timeline frames
   getFrames: (videoPath: string, count: number): Promise<string[]> =>

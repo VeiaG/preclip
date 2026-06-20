@@ -26,25 +26,14 @@ function formatDate(ts: number) {
   return new Date(ts).toLocaleString()
 }
 
-function useIsWide(breakpoint = 1024) {
-  const [isWide, setIsWide] = useState(() => window.innerWidth >= breakpoint)
-  useEffect(() => {
-    const mq = window.matchMedia(`(min-width: ${breakpoint}px)`)
-    const handler = (e: MediaQueryListEvent) => setIsWide(e.matches)
-    mq.addEventListener('change', handler)
-    return () => mq.removeEventListener('change', handler)
-  }, [breakpoint])
-  return isWide
-}
-
-// ── Status config ─────────────────────────────────────────────────────────────
+// ── Status ────────────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG: Record<JobStatus, { icon: React.ElementType; label: string; className: string }> = {
-  running:   { icon: Loader2,      label: 'Converting',     className: 'text-primary' },
-  queued:    { icon: Clock,        label: 'Queued',          className: 'text-muted-foreground' },
-  done:      { icon: CheckCircle2, label: 'Done',            className: 'text-green-500' },
-  error:     { icon: AlertCircle,  label: 'Error',           className: 'text-destructive' },
-  cancelled: { icon: XCircle,      label: 'Cancelled',       className: 'text-muted-foreground' },
+  running:   { icon: Loader2,      label: 'Converting', className: 'text-primary' },
+  queued:    { icon: Clock,        label: 'Queued',      className: 'text-muted-foreground' },
+  done:      { icon: CheckCircle2, label: 'Done',        className: 'text-green-500' },
+  error:     { icon: AlertCircle,  label: 'Error',       className: 'text-destructive' },
+  cancelled: { icon: XCircle,      label: 'Cancelled',   className: 'text-muted-foreground' },
 }
 
 function StatusBadge({ status }: { status: JobStatus }) {
@@ -106,7 +95,7 @@ function VideoPreview({ src, status, progress }: { src: string; status: JobStatu
   )
 }
 
-// ── Stat cards ────────────────────────────────────────────────────────────────
+// ── Sub-components ────────────────────────────────────────────────────────────
 
 function StatCard({ label, value, className }: { label: string; value: string; className?: string }) {
   return (
@@ -117,8 +106,6 @@ function StatCard({ label, value, className }: { label: string; value: string; c
   )
 }
 
-// ── Sheet detail row ──────────────────────────────────────────────────────────
-
 function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex justify-between items-start px-4 py-2.5 text-sm gap-4">
@@ -127,8 +114,6 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
     </div>
   )
 }
-
-// ── Cancel section ────────────────────────────────────────────────────────────
 
 function CancelSection({ job }: { job: Job }) {
   const [confirming, setConfirming] = useState(false)
@@ -155,11 +140,10 @@ function CancelSection({ job }: { job: Job }) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function JobDetail() {
-  const { id }    = useParams<{ id: string }>()
-  const navigate  = useNavigate()
-  const { jobs }  = useJobs()
-  const job       = jobs.find((j) => j.id === id)
-  const isWide    = useIsWide()
+  const { id }   = useParams<{ id: string }>()
+  const navigate = useNavigate()
+  const { jobs } = useJobs()
+  const job      = jobs.find((j) => j.id === id)
   const [mediaPort, setMediaPort] = useState(0)
 
   useEffect(() => { window.api.mediaPort().then(setMediaPort) }, [])
@@ -174,180 +158,137 @@ export default function JobDetail() {
     )
   }
 
-  const metadata = job.metadata as CompressMetadata
+  const metadata  = job.metadata as CompressMetadata
+  const videoPath = job.status === 'done' ? job.outputPath : job.inputPath
+  const videoSrc  = mediaPort ? `http://127.0.0.1:${mediaPort}/${encodeURIComponent(videoPath)}` : ''
 
-  // Saving: positive = output smaller (good), negative = output larger
   const savingPct =
     job.outputSize && job.inputSize > 0
       ? Math.round((1 - job.outputSize / job.inputSize) * 100)
       : null
 
-  const videoPath = job.status === 'done' ? job.outputPath : job.inputPath
-  const videoSrc  = mediaPort ? `http://127.0.0.1:${mediaPort}/${encodeURIComponent(videoPath)}` : ''
-
-  // ── Shared elements ─────────────────────────────────────────────────────────
-
-  const headerEl = (
-    <div className="px-4 py-3 border-b flex items-center gap-3 shrink-0">
-      <button
-        onClick={() => navigate('/jobs')}
-        className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0"
-      >
-        <ArrowLeft className="w-4 h-4" />
-      </button>
-
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold truncate">{job.name}</p>
-        <StatusBadge status={job.status} />
-      </div>
-
-      {job.status === 'done' && (
-        <button
-          onClick={() => window.api.showInFolder(job.outputPath)}
-          className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0"
-          title="Show in folder"
-        >
-          <FolderOpen className="w-4 h-4" />
-        </button>
-      )}
-
-      <Sheet>
-        <SheetTrigger
-          className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0"
-          aria-label="Details"
-        >
-          <Info className="w-4 h-4" />
-        </SheetTrigger>
-        <SheetContent side="right">
-          <SheetHeader><SheetTitle>Job details</SheetTitle></SheetHeader>
-          <div className="flex-1 overflow-y-auto">
-            <div className="py-2">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-4 py-2">Settings</p>
-              <div className="divide-y border-y">
-                <DetailRow label="Quality"  value={`${metadata.quality}%`} />
-                <DetailRow label="Scale"    value={`${metadata.scale}×`} />
-                <DetailRow label="Format"   value={metadata.format?.toUpperCase()} />
-                {metadata.trimStart !== undefined && (
-                  <DetailRow label="Trim start" value={`${metadata.trimStart?.toFixed(2)}s`} />
-                )}
-                {metadata.trimEnd !== undefined && (
-                  <DetailRow label="Trim end" value={`${metadata.trimEnd?.toFixed(2)}s`} />
-                )}
-              </div>
-            </div>
-            <div className="py-2">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-4 py-2">Files</p>
-              <div className="divide-y border-y">
-                <DetailRow label="Input"     value={job.inputPath} />
-                <DetailRow label="Output"    value={job.outputPath} />
-                <DetailRow label="Started"   value={formatDate(job.createdAt)} />
-                {job.completedAt && <DetailRow label="Completed" value={formatDate(job.completedAt)} />}
-              </div>
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
-    </div>
-  )
-
-  const infoEl = (
-    <div className="flex flex-col gap-5">
-      {/* Size stats */}
-      {job.status === 'done' && job.outputSize && savingPct !== null && (
-        <div className="grid grid-cols-3 gap-3">
-          <StatCard label="Original" value={formatSize(job.inputSize)} />
-          <StatCard label="Output"   value={formatSize(job.outputSize)} />
-          <StatCard
-            label={savingPct >= 0 ? 'Saved' : 'Grew'}
-            value={savingPct >= 0 ? `−${savingPct}%` : `+${Math.abs(savingPct)}%`}
-            className={savingPct > 0 ? 'text-green-600 dark:text-green-400' : savingPct < 0 ? 'text-amber-500' : 'text-muted-foreground'}
-          />
-        </div>
-      )}
-
-      {/* Error */}
-      {job.status === 'error' && (
-        <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-          {job.error}
-        </div>
-      )}
-
-      {/* Progress bar when running */}
-      {job.status === 'running' && (
-        <div className="space-y-2">
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span>Converting…</span>
-            <span className="tabular-nums font-medium">{Math.round(job.progress)}%</span>
-          </div>
-          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-            <div className="h-full bg-primary rounded-full transition-all duration-200" style={{ width: `${job.progress}%` }} />
-          </div>
-        </div>
-      )}
-
-      <Separator />
-
-      {/* Settings summary */}
-      <div className="space-y-2">
-        <span className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block">Settings</span>
-        <div className="grid grid-cols-3 gap-2 text-sm">
-          {[
-            { label: 'Quality', value: `${metadata.quality}%` },
-            { label: 'Scale',   value: `${metadata.scale}×` },
-            { label: 'Format',  value: metadata.format?.toUpperCase() },
-          ].map(({ label, value }) => (
-            <div key={label} className="rounded-xl border bg-muted/30 px-3 py-3 text-center space-y-0.5">
-              <p className="text-xs text-muted-foreground">{label}</p>
-              <p className="font-semibold">{value}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <CancelSection job={job} />
-    </div>
-  )
-
-  // ── Wide layout ─────────────────────────────────────────────────────────────
-
-  if (isWide) {
-    return (
-      <div className="flex flex-col h-full">
-        {headerEl}
-        <div className="flex-1 min-h-0">
-          <ResizablePanelGroup direction="horizontal" className="h-full">
-            <ResizablePanel defaultSize={60} minSize={35}>
-              <div className="h-full bg-black">
-                {videoSrc && <VideoPreview src={videoSrc} status={job.status} progress={job.progress} />}
-              </div>
-            </ResizablePanel>
-
-            <ResizableHandle withHandle />
-
-            <ResizablePanel defaultSize={40} minSize={28}>
-              <div className="h-full overflow-y-auto p-5">
-                {infoEl}
-              </div>
-            </ResizablePanel>
-          </ResizablePanelGroup>
-        </div>
-      </div>
-    )
-  }
-
-  // ── Narrow layout ───────────────────────────────────────────────────────────
-
   return (
     <div className="flex flex-col h-full">
-      {headerEl}
-      <div className="flex-1 overflow-y-auto flex flex-col">
-        {/* Video with aspect ratio */}
-        <div className="relative bg-black aspect-video w-full max-h-64 shrink-0">
-          {videoSrc && <VideoPreview src={videoSrc} status={job.status} progress={job.progress} />}
+      {/* Header */}
+      <div className="px-4 py-3 border-b flex items-center gap-3 shrink-0">
+        <button onClick={() => navigate('/jobs')} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0">
+          <ArrowLeft className="w-4 h-4" />
+        </button>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold truncate">{job.name}</p>
+          <StatusBadge status={job.status} />
         </div>
-        <div className="p-5 flex flex-col gap-5">
-          {infoEl}
-        </div>
+        {job.status === 'done' && (
+          <button onClick={() => window.api.showInFolder(job.outputPath)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0" title="Show in folder">
+            <FolderOpen className="w-4 h-4" />
+          </button>
+        )}
+        <Sheet>
+          <SheetTrigger className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0" aria-label="Details">
+            <Info className="w-4 h-4" />
+          </SheetTrigger>
+          <SheetContent side="right">
+            <SheetHeader><SheetTitle>Job details</SheetTitle></SheetHeader>
+            <div className="flex-1 overflow-y-auto">
+              <div className="py-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-4 py-2">Settings</p>
+                <div className="divide-y border-y">
+                  <DetailRow label="Quality"  value={`${metadata.quality}%`} />
+                  <DetailRow label="Scale"    value={`${metadata.scale}×`} />
+                  <DetailRow label="Format"   value={metadata.format?.toUpperCase()} />
+                  {metadata.trimStart !== undefined && <DetailRow label="Trim start" value={`${metadata.trimStart?.toFixed(2)}s`} />}
+                  {metadata.trimEnd   !== undefined && <DetailRow label="Trim end"   value={`${metadata.trimEnd?.toFixed(2)}s`} />}
+                </div>
+              </div>
+              <div className="py-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-4 py-2">Files</p>
+                <div className="divide-y border-y">
+                  <DetailRow label="Input"     value={job.inputPath} />
+                  <DetailRow label="Output"    value={job.outputPath} />
+                  <DetailRow label="Started"   value={formatDate(job.createdAt)} />
+                  {job.completedAt && <DetailRow label="Completed" value={formatDate(job.completedAt)} />}
+                </div>
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
+      </div>
+
+      {/* Resizable split — always */}
+      <div className="flex-1 min-h-0">
+        <ResizablePanelGroup direction="horizontal" className="h-full">
+
+          {/* Left: video preview */}
+          <ResizablePanel defaultSize={62} minSize={30}>
+            <div className="h-full bg-black">
+              {videoSrc && <VideoPreview src={videoSrc} status={job.status} progress={job.progress} />}
+            </div>
+          </ResizablePanel>
+
+          <ResizableHandle withHandle />
+
+          {/* Right: info — @container for responsive grids */}
+          <ResizablePanel defaultSize={38} minSize={25}>
+            <div className="h-full overflow-y-auto p-5 flex flex-col gap-5 @container">
+
+              {/* Size stats */}
+              {job.status === 'done' && job.outputSize && savingPct !== null && (
+                <div className="grid grid-cols-3 gap-3">
+                  <StatCard label="Original" value={formatSize(job.inputSize)} />
+                  <StatCard label="Output"   value={formatSize(job.outputSize)} />
+                  <StatCard
+                    label={savingPct >= 0 ? 'Saved' : 'Grew'}
+                    value={savingPct >= 0 ? `−${savingPct}%` : `+${Math.abs(savingPct)}%`}
+                    className={savingPct > 0 ? 'text-green-600 dark:text-green-400' : savingPct < 0 ? 'text-amber-500' : 'text-muted-foreground'}
+                  />
+                </div>
+              )}
+
+              {/* Error */}
+              {job.status === 'error' && (
+                <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+                  {job.error}
+                </div>
+              )}
+
+              {/* Progress */}
+              {job.status === 'running' && (
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>Converting…</span>
+                    <span className="tabular-nums font-medium">{Math.round(job.progress)}%</span>
+                  </div>
+                  <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                    <div className="h-full bg-primary rounded-full transition-all duration-200" style={{ width: `${job.progress}%` }} />
+                  </div>
+                </div>
+              )}
+
+              <Separator />
+
+              {/* Settings summary — responsive grid */}
+              <div className="space-y-3">
+                <span className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block">Settings</span>
+                <div className="grid grid-cols-2 @xs:grid-cols-3 gap-2 text-sm">
+                  {[
+                    { label: 'Quality', value: `${metadata.quality}%` },
+                    { label: 'Scale',   value: `${metadata.scale}×` },
+                    { label: 'Format',  value: metadata.format?.toUpperCase() },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="rounded-xl border bg-muted/30 px-3 py-3 text-center space-y-0.5">
+                      <p className="text-xs text-muted-foreground">{label}</p>
+                      <p className="font-semibold">{value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <CancelSection job={job} />
+
+            </div>
+          </ResizablePanel>
+
+        </ResizablePanelGroup>
       </div>
     </div>
   )

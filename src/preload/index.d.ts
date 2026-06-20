@@ -20,6 +20,7 @@ interface VideoKitAPI {
   openDir: () => Promise<string | null>
   getPathForFile: (file: File) => string
   showInFolder: (filePath: string) => void
+  openPath: (p: string) => void
   listDir: (dirPath: string) => Promise<{ name: string; fullPath: string }[]>
   listGames: (dirPath: string) => Promise<{ name: string; fullPath: string; videoCount: number; totalSize: number }[]>
   listVideos: (dirPath: string) => Promise<{ name: string; fullPath: string; size: number; modifiedAt: number }[]>
@@ -29,6 +30,7 @@ interface VideoKitAPI {
   getThumbnail: (videoPath: string) => Promise<string | null>
   clearThumbnailCache: () => Promise<void>
   getThumbnailCacheSize: () => Promise<number>
+  getThumbnailCacheDir: () => Promise<string>
 
   getFrames: (videoPath: string, count: number) => Promise<string[]>
 

@@ -7,7 +7,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { addJob, cancelJob, getAllJobs, getRunningJobs } from './jobQueue'
 import { getSettings, setSettings } from './settings'
-import { generateThumbnail, clearThumbnailCache, getThumbnailCacheSize } from './thumbnails'
+import { generateThumbnail, clearThumbnailCache, getThumbnailCacheSize, getThumbnailCacheDir } from './thumbnails'
 import { generateFrames, clearFramesCache } from './frames'
 import { getGameCover } from './covers'
 
@@ -197,6 +197,7 @@ app.whenReady().then(() => {
   })
 
   ipcMain.on('shell:showInFolder', (_, filePath: string) => shell.showItemInFolder(filePath))
+  ipcMain.on('shell:openPath', (_, p: string) => shell.openPath(p))
 
   ipcMain.handle('fs:listDir', (_, dirPath: string) => {
     const exts = ['.mp4', '.mov', '.avi', '.mkv', '.webm', '.wmv']
@@ -253,6 +254,7 @@ app.whenReady().then(() => {
   })
   ipcMain.handle('thumbnails:clearCache', () => clearThumbnailCache())
   ipcMain.handle('thumbnails:cacheSize', () => getThumbnailCacheSize())
+  ipcMain.handle('thumbnails:cacheDir', () => getThumbnailCacheDir())
 
   // Timeline frames (cleared on every startup — ephemeral editing cache)
   clearFramesCache()

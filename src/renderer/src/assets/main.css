@@ -141,4 +141,5 @@ html, body {
 /* Push fixed sidebar below the custom titlebar */
 [data-slot="sidebar-container"] {
   top: var(--titlebar-height) !important;
+  height: calc(100vh - var(--titlebar-height)) !important;
 }
