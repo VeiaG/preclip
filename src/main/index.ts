@@ -102,6 +102,16 @@ function createWindow(): BrowserWindow {
     autoHideMenuBar: true,
     minWidth: 600,
     minHeight: 480,
+    // Required properties for transparency effects
+    transparent: true, 
+    frame: false, // Often required for clean background styles
+
+    // macOS Native Blur Effect
+    vibrancy: 'fullscreen-ui', 
+
+    // Windows 11 Native Blur Effect
+    backgroundMaterial: 'acrylic',
+    // backgroundMaterial:'mica',
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),

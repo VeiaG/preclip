@@ -1,4 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react'
+import { VISUAL_THEMES, type VisualTheme } from '@/lib/themes'
+export type { VisualTheme }
 
 type Theme = 'light' | 'dark' | 'system'
 
@@ -6,6 +8,8 @@ interface ThemeContextType {
   theme: Theme
   setTheme: (theme: Theme) => void
   resolvedTheme: 'light' | 'dark'
+  visualTheme: VisualTheme
+  setVisualTheme: (vt: VisualTheme) => void
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
@@ -13,6 +17,9 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(
     () => (localStorage.getItem('theme') as Theme) || 'system'
+  )
+  const [visualTheme, setVisualThemeState] = useState<VisualTheme>(
+    () => (localStorage.getItem('visual-theme') as VisualTheme) || 'default'
   )
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light')
 
@@ -46,8 +53,20 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setThemeState(t)
   }
 
+useEffect(() => {
+  const root = document.documentElement
+  const allThemeClasses = VISUAL_THEMES.filter((t) => t.slug !== 'default').map((t) => `theme-${t.slug}`)
+  root.classList.remove(...allThemeClasses)
+    root.classList.add(`theme-${visualTheme}`)
+}, [visualTheme])
+
+const setVisualTheme = (vt: VisualTheme) => {
+  localStorage.setItem('visual-theme', vt)
+  setVisualThemeState(vt)
+}
+
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, resolvedTheme }}>
+    <ThemeContext.Provider value={{ theme, setTheme, resolvedTheme, visualTheme, setVisualTheme }}>
       {children}
     </ThemeContext.Provider>
   )
