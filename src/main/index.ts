@@ -8,6 +8,7 @@ import icon from '../../resources/icon.png?asset'
 import { addJob, cancelJob, getAllJobs, getRunningJobs } from './jobQueue'
 import { getSettings, setSettings } from './settings'
 import { generateThumbnail, clearThumbnailCache, getThumbnailCacheSize } from './thumbnails'
+import { generateFrames, clearFramesCache } from './frames'
 import { getGameCover } from './covers'
 
 const MEDIA_MIME: Record<string, string> = {
@@ -252,6 +253,12 @@ app.whenReady().then(() => {
   })
   ipcMain.handle('thumbnails:clearCache', () => clearThumbnailCache())
   ipcMain.handle('thumbnails:cacheSize', () => getThumbnailCacheSize())
+
+  // Timeline frames (cleared on every startup — ephemeral editing cache)
+  clearFramesCache()
+  ipcMain.handle('frames:get', async (_, videoPath: string, count: number) => {
+    try { return await generateFrames(videoPath, count) } catch { return [] }
+  })
 
   // Delete folder (recursive)
   ipcMain.handle('fs:deleteFolder', (_, folderPath: string) => {
