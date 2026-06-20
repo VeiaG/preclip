@@ -68,6 +68,19 @@ const api = {
   // Media server
   mediaPort: (): Promise<number> => ipcRenderer.invoke('media:port'),
 
+  // Window controls
+  windowControls: {
+    minimize: (): void => ipcRenderer.send('window:minimize'),
+    maximize: (): void => ipcRenderer.send('window:maximize'),
+    close: (): void => ipcRenderer.send('window:close'),
+    isMaximized: (): Promise<boolean> => ipcRenderer.invoke('window:isMaximized'),
+    onMaximizeChange: (cb: (isMaximized: boolean) => void): (() => void) => {
+      const listener = (_: IpcRendererEvent, val: boolean) => cb(val)
+      ipcRenderer.on('window:maximized', listener)
+      return () => ipcRenderer.removeListener('window:maximized', listener)
+    },
+  },
+
 }
 
 if (process.contextIsolated) {

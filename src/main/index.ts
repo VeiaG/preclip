@@ -104,8 +104,8 @@ function createWindow(): BrowserWindow {
     minHeight: 480,
     backgroundColor:"#00000000",
     // Required properties for transparency effects
-    transparent: true, 
-    // frame: false, // Often required for clean background styles
+    transparent: true,
+    frame: false,
 
     // macOS Native Blur Effect
     vibrancy: 'fullscreen-ui', 
@@ -123,6 +123,9 @@ function createWindow(): BrowserWindow {
   Menu.setApplicationMenu(null);
 
   mainWindow.on('ready-to-show', () => mainWindow.show())
+
+  mainWindow.on('maximize', () => mainWindow.webContents.send('window:maximized', true))
+  mainWindow.on('unmaximize', () => mainWindow.webContents.send('window:maximized', false))
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url)
@@ -156,6 +159,15 @@ function createWindow(): BrowserWindow {
 app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.electron')
   app.on('browser-window-created', (_, window) => optimizer.watchWindowShortcuts(window))
+
+  // Window controls
+  ipcMain.on('window:minimize', () => mainWindow.minimize())
+  ipcMain.on('window:maximize', () => {
+    if (mainWindow.isMaximized()) mainWindow.unmaximize()
+    else mainWindow.maximize()
+  })
+  ipcMain.on('window:close', () => mainWindow.close())
+  ipcMain.handle('window:isMaximized', () => mainWindow.isMaximized())
 
   // Jobs
   ipcMain.handle('jobs:add', (_, opts) => addJob(mainWindow, opts))

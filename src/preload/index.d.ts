@@ -34,6 +34,14 @@ interface VideoKitAPI {
   deleteFiles: (filePaths: string[]) => Promise<void>
 
   mediaPort: () => Promise<number>
+
+  windowControls: {
+    minimize: () => void
+    maximize: () => void
+    close: () => void
+    isMaximized: () => Promise<boolean>
+    onMaximizeChange: (cb: (isMaximized: boolean) => void) => () => void
+  }
 }
 
 declare global {
