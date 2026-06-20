@@ -1,5 +1,6 @@
 import ffmpeg from 'fluent-ffmpeg'
 import ffmpegStatic from 'ffmpeg-static'
+import ffprobeStatic from 'ffprobe-static'
 import path from 'path'
 import fs from 'fs'
 import crypto from 'crypto'
@@ -7,6 +8,9 @@ import { app } from 'electron'
 
 if (ffmpegStatic) {
   ffmpeg.setFfmpegPath(ffmpegStatic.replace('app.asar', 'app.asar.unpacked'))
+}
+if (ffprobeStatic?.path) {
+  ffmpeg.setFfprobePath(ffprobeStatic.path.replace('app.asar', 'app.asar.unpacked'))
 }
 
 let cacheDir: string | null = null
@@ -81,4 +85,14 @@ export async function generateFrames(videoPath: string, count: number = 20): Pro
 
   inProgress.set(hash, promise)
   return promise
+}
+
+export async function probeAudioTracks(videoPath: string): Promise<number> {
+  return new Promise((resolve) => {
+    ffmpeg.ffprobe(videoPath, (err, meta) => {
+      if (err) { resolve(1); return }
+      const count = meta.streams.filter(s => s.codec_type === 'audio').length
+      resolve(Math.max(count, 1))
+    })
+  })
 }

@@ -172,8 +172,10 @@ export default function VideoEditor() {
   const [qualityKey,  setQualityKey]  = useState<QualityKey>('high')
   const [scale,       setScale]       = useState(1)
   const [format,      setFormat]      = useState<Format>('mp4')
-  const [frames,      setFrames]      = useState<string[]>([])
-  const [submitting,  setSubmitting]  = useState(false)
+  const [frames,          setFrames]          = useState<string[]>([])
+  const [audioTrackCount, setAudioTrackCount] = useState(1)
+  const [mergeAudio,      setMergeAudio]      = useState(false)
+  const [submitting,      setSubmitting]       = useState(false)
 
   useEffect(() => { window.api.mediaPort().then(setMediaPort) }, [])
 
@@ -184,8 +186,13 @@ export default function VideoEditor() {
   useEffect(() => {
     if (!selectedFile || !mediaPort) return
     setFrames([])
+    setAudioTrackCount(1)
+    setMergeAudio(false)
     window.api.getFrames(selectedFile.path, 20)
       .then(paths => setFrames(paths.map(p => `http://127.0.0.1:${mediaPort}/${encodeURIComponent(p)}`)))
+      .catch(() => {})
+    window.api.probeAudioTracks(selectedFile.path)
+      .then(setAudioTrackCount)
       .catch(() => {})
   }, [selectedFile, mediaPort])
 
@@ -250,6 +257,8 @@ export default function VideoEditor() {
           format,
           trimStart: isFullClip ? undefined : trimStart,
           trimEnd:   isFullClip ? undefined : trimEnd,
+          mergeAudioTracks: audioTrackCount > 1 ? mergeAudio : undefined,
+          audioTrackCount:  audioTrackCount > 1 ? audioTrackCount : undefined,
         },
       })
       navigate('/jobs')
@@ -449,6 +458,27 @@ export default function VideoEditor() {
                   ))}
                 </div>
               </div>
+
+              {audioTrackCount > 1 && (
+                <>
+                  <Separator />
+                  <div className="space-y-3">
+                    <span className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block">
+                      Audio tracks <span className="font-normal normal-case">({audioTrackCount} detected)</span>
+                    </span>
+                    <div className="grid grid-cols-2 gap-2">
+                      <OptionButton selected={!mergeAudio} onClick={() => setMergeAudio(false)}>
+                        <span className="text-sm font-bold">First only</span>
+                        <span className="text-xs text-muted-foreground">Default track</span>
+                      </OptionButton>
+                      <OptionButton selected={mergeAudio} onClick={() => setMergeAudio(true)}>
+                        <span className="text-sm font-bold">Merge all</span>
+                        <span className="text-xs text-muted-foreground">Mix into one</span>
+                      </OptionButton>
+                    </div>
+                  </div>
+                </>
+              )}
 
               <Button onClick={handleSubmit} className="w-full" disabled={submitting || duration === 0}>
                 {submitting ? 'Adding…' : isEditorMode ? 'Trim & Compress' : 'Add to Queue'}

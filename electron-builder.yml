@@ -12,6 +12,7 @@ files:
 asarUnpack:
   - resources/**
   - node_modules/ffmpeg-static/**
+  - node_modules/ffprobe-static/**
 win:
   executableName: video-converter
 nsis:

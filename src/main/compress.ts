@@ -39,9 +39,11 @@ export function runCompress(
   onProgress: (percent: number) => void,
   onCommand: (cmd: ffmpeg.FfmpegCommand) => void,
 ): Promise<void> {
-  const { quality, scale, format } = metadata
+  const { quality, scale, format, mergeAudioTracks, audioTrackCount } = metadata
   const isVp9 = format === 'webm'
   const crf = qualityToCrf(quality, isVp9)
+  const shouldMerge = mergeAudioTracks === true && (audioTrackCount ?? 1) > 1
+  const n = audioTrackCount ?? 1
 
   return new Promise((resolve, reject) => {
     const { trimStart, trimEnd } = metadata
@@ -67,8 +69,19 @@ export function runCompress(
         .addOption('-movflags', '+faststart')
     }
 
-    if (scale !== 1) {
-      cmd.videoFilter(`scale=trunc(iw*${scale}/2)*2:trunc(ih*${scale}/2)*2`)
+    if (shouldMerge) {
+      const filters: string[] = []
+      if (scale !== 1) {
+        filters.push(`[0:v:0]scale=trunc(iw*${scale}/2)*2:trunc(ih*${scale}/2)*2[vout]`)
+      }
+      const ains = Array.from({ length: n }, (_, i) => `[0:a:${i}]`).join('')
+      filters.push(`${ains}amerge=inputs=${n},aformat=sample_rates=44100:channel_layouts=stereo[aout]`)
+      cmd.addOption('-filter_complex', filters.join(';'))
+      cmd.outputOptions(['-map', scale !== 1 ? '[vout]' : '0:v:0', '-map', '[aout]'])
+    } else {
+      if (scale !== 1) {
+        cmd.videoFilter(`scale=trunc(iw*${scale}/2)*2:trunc(ih*${scale}/2)*2`)
+      }
     }
 
     onCommand(cmd)

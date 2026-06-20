@@ -70,6 +70,9 @@ const api = {
   getFrames: (videoPath: string, count: number): Promise<string[]> =>
     ipcRenderer.invoke('frames:get', videoPath, count),
 
+  probeAudioTracks: (videoPath: string): Promise<number> =>
+    ipcRenderer.invoke('probe:audioTracks', videoPath),
+
   // Delete
   deleteFolder: (folderPath: string): Promise<void> => ipcRenderer.invoke('fs:deleteFolder', folderPath),
   deleteFiles: (filePaths: string[]): Promise<void> => ipcRenderer.invoke('fs:deleteFiles', filePaths),

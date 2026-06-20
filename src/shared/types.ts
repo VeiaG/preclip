@@ -7,6 +7,8 @@ export interface CompressMetadata {
   format: string
   trimStart?: number
   trimEnd?: number
+  mergeAudioTracks?: boolean
+  audioTrackCount?: number
 }
 
 export interface GifMetadata {

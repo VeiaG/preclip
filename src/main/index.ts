@@ -8,7 +8,7 @@ import icon from '../../resources/icon.png?asset'
 import { addJob, cancelJob, getAllJobs, getRunningJobs } from './jobQueue'
 import { getSettings, setSettings } from './settings'
 import { generateThumbnail, clearThumbnailCache, getThumbnailCacheSize, getThumbnailCacheDir } from './thumbnails'
-import { generateFrames, clearFramesCache } from './frames'
+import { generateFrames, clearFramesCache, probeAudioTracks } from './frames'
 import { getGameCover } from './covers'
 
 const MEDIA_MIME: Record<string, string> = {
@@ -260,6 +260,9 @@ app.whenReady().then(() => {
   clearFramesCache()
   ipcMain.handle('frames:get', async (_, videoPath: string, count: number) => {
     try { return await generateFrames(videoPath, count) } catch { return [] }
+  })
+  ipcMain.handle('probe:audioTracks', async (_, videoPath: string) => {
+    try { return await probeAudioTracks(videoPath) } catch { return 1 }
   })
 
   // Delete folder (recursive)

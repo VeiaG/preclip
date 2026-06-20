@@ -33,6 +33,7 @@ interface VideoKitAPI {
   getThumbnailCacheDir: () => Promise<string>
 
   getFrames: (videoPath: string, count: number) => Promise<string[]>
+  probeAudioTracks: (videoPath: string) => Promise<number>
 
   deleteFolder: (folderPath: string) => Promise<void>
   deleteFiles: (filePaths: string[]) => Promise<void>
