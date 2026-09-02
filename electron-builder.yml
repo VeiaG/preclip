@@ -44,5 +44,9 @@ publish:
   provider: github
   owner: VeiaG
   repo: preclip
+  # Defaults to `draft`, which makes electron-builder refuse to upload to an
+  # already-published release ("existing type not compatible with publishing
+  # type") and skip every artifact while still exiting 0.
+  releaseType: release
 electronDownload:
   mirror: https://npmmirror.com/mirrors/electron/
