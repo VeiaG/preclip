@@ -1,9 +1,15 @@
 import { useEffect, useState, useCallback } from 'react'
 import {  FolderOpen, Minus, Plus, Gamepad2, Trash2, ExternalLink } from 'lucide-react'
-import { formatSize } from '@/lib/utils'
+import { cn, formatSize } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import type { AppSettings } from '../../../shared/types'
+import type { AppSettings, StartPage } from '../../../shared/types'
 
+const START_PAGES: { value: StartPage; label: string }[] = [
+  { value: '/hub', label: 'Game Library' },
+  { value: '/', label: 'Home' },
+  { value: '/compress', label: 'Compress' },
+  { value: '/jobs', label: 'Jobs' },
+]
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -17,6 +23,7 @@ export default function Settings() {
   const [settings, setSettingsState] = useState<AppSettings | null>(null)
   const [cacheSize, setCacheSize] = useState<number>(0)
   const [cacheDir, setCacheDir] = useState<string>('')
+  const [appVersion, setAppVersion] = useState<string>('—')
   const [clearing, setClearing] = useState(false)
 
   const refreshCacheSize = useCallback(() => {
@@ -27,6 +34,7 @@ export default function Settings() {
     window.api.getSettings().then(setSettingsState)
     refreshCacheSize()
     window.api.getThumbnailCacheDir().then(setCacheDir)
+    window.api.getAppVersion().then(setAppVersion)
   }, [refreshCacheSize])
 
   const save = async (partial: Partial<AppSettings>) => {
@@ -55,6 +63,37 @@ export default function Settings() {
     <div className="h-full overflow-y-auto">
     <div className="p-8 max-w-lg space-y-8">
       <h1 className="text-2xl font-bold">Settings</h1>
+
+      <section>
+        <SectionLabel>Startup</SectionLabel>
+        <div className="border rounded-xl divide-y">
+          <div className="px-4 py-3 space-y-2.5">
+            <div>
+              <p className="text-sm font-medium">Start page</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Which screen PreClip opens on
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {START_PAGES.map(({ value, label }) => (
+                <button
+                  key={value}
+                  onClick={() => save({ startPage: value })}
+                  disabled={!settings}
+                  className={cn(
+                    'py-2 text-sm rounded-lg border transition-colors disabled:opacity-40',
+                    settings?.startPage === value
+                      ? 'bg-primary text-primary-foreground border-primary font-medium'
+                      : 'border-border hover:bg-accent',
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
 
       <section>
         <SectionLabel>Processing</SectionLabel>
@@ -183,7 +222,7 @@ export default function Settings() {
         <div className="border rounded-xl px-4 py-3 space-y-1">
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Version</span>
-            <span>0.0.1</span>
+            <span>{appVersion}</span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Electron</span>

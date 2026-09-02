@@ -1,4 +1,4 @@
-# VideoKit — Project Reference
+# PreClip — Project Reference
 
 ## Stack
 
@@ -11,7 +11,7 @@
 | Package manager | pnpm |
 | FFmpeg | `ffmpeg-static` + `ffprobe-static` + `fluent-ffmpeg` |
 
-**Window:** Frameless (`frame: false`), transparent with Windows Acrylic blur (`backgroundMaterial: 'acrylic'`). Custom TitleBar handles drag region + window controls via IPC.
+**Window:** Frameless (`frame: false`) and fully opaque (`backgroundColor: '#0a0a0a'`). Custom TitleBar handles drag region + window controls via IPC.
 
 ---
 
@@ -32,6 +32,7 @@ src/
     lib/            — utils.ts (cn), gameCovers.ts
   shared/
     types.ts        — Types shared between main and renderer
+    clipmark.ts     — Filename heuristic for pre-metadata clips
 ```
 
 ---
@@ -44,9 +45,19 @@ Entry point. Creates BrowserWindow, starts HTTP media server, registers all IPC 
 **Media server:** HTTP on random port (`127.0.0.1:PORT`), serves local files by path with Range request support. Port exposed via `media:port` IPC. Used instead of custom Electron protocol to avoid quirks with range requests and video seeking.
 
 ### `compress.ts`
-Pure FFmpeg logic. `runCompress()` builds and runs the fluent-ffmpeg command. `buildOutputPath()` generates a non-conflicting output filename (`_compressed` or `_clip` suffix).
+Pure FFmpeg logic. `runCompress()` builds and runs the fluent-ffmpeg command. `buildOutputPath()` generates a non-conflicting output filename (`_compressed` or `_clip` suffix; GIFs keep the source name).
 
 Codecs: libx264 (mp4/mov), libvpx-vp9 (webm). Supports trim (seekInput + `-t`), scale (`-vf scale` or `-filter_complex` when merging audio), audio merge (`amerge` filter when `mergeAudioTracks: true`).
+
+Every output is stamped with `-metadata comment=PreClip` so `clipmarks.ts` can recognise it later.
+
+### `gif.ts`
+`runGif()` runs the two-pass palette pipeline: `palettegen=max_colors=N` into a temp PNG (0–15% of progress), then `paletteuse=dither=…` against it (15–99%). `-loop 0` loops forever, `-loop -1` plays once.
+
+`generateGifPreview()` renders a single frame through the same palettegen/paletteuse pair so the preview shows real GIF banding. `trim=end_frame=1` comes first in the filter chain — palettegen only emits at EOF, so without it the filter would swallow the whole video. Cached in `userData/gifpreview/`, cleared on startup.
+
+### `clipmarks.ts`
+Tells app-produced clips from original captures. Reads the `comment`/`encoder_tool` tags via ffprobe and falls back to the filename heuristic in `shared/clipmark.ts` for files made before tagging existed. Results are cached in `userData/clipmarks.json` keyed by `path|size|mtime`, so a folder costs one ffprobe per new file and nothing afterwards. Concurrency 4. `markOutput()` records finished jobs directly, skipping the probe.
 
 ### `jobQueue.ts`
 In-memory job queue. `addJob()` creates a job and starts it if slots available. `cancelJob()` kills the running ffmpeg process via `SIGKILL`. Respects `maxParallelJobs` setting. Broadcasts `jobs:updated` IPC event on every state change.
@@ -60,10 +71,24 @@ Generates N timeline strip frames (120px wide, evenly distributed) into `userDat
 Also exports `probeAudioTracks(path)` — uses ffprobe to count audio streams.
 
 ### `covers.ts`
-Fetches Steam game cover art by game name.
+Fetches Steam game cover art by game name, and owns user overrides.
+
+Resolution order: a custom cover at `covers/custom/{slug}.jpg` always wins, otherwise the Steam appId from `covers/ids.json` (searched once per folder name and cached, `null` included) drives a capsule download into `covers/{appId}.jpg`.
+
+`setCustomCover()` re-encodes any image ffmpeg can read — jpg, png, webp, animated gif — into the capsule format via `scale=…:force_original_aspect_ratio=increase,crop=…`, so it fills the frame instead of stretching. It writes to a temp file first so a failed convert can't destroy the existing cover. The stored size is 616x352, one pixel shorter than Steam's capsule: MJPEG at 4:2:0 cannot encode an odd height, and an even one keeps every custom cover identical regardless of the source's pixel format.
+
+`setSteamAppId()` re-pins a folder to a chosen search result and clears the custom cover, since a custom cover would otherwise outrank the new choice.
 
 ### `settings.ts`
 Reads/writes `AppSettings` to `userData/settings.json`.
+
+---
+
+## Release (`.github/workflows/release.yml`)
+
+Publishing a GitHub release triggers a `windows-latest` build that attaches the installer, blockmap and `latest.yml` through electron-builder's `provider: github`.
+
+Two things the workflow has to work around: the tag is checked against `package.json` because electron-builder names artifacts from the latter, and `.npmrc`'s npmmirror pins are stripped from the runner's copy because `@electron/get` reads `npm_config_electron_mirror` ahead of `ELECTRON_MIRROR`, so the environment alone cannot override them.
 
 ---
 
@@ -96,12 +121,22 @@ interface Job {
   metadata: JobMetadata
 }
 
+interface GifMetadata {
+  fps: number
+  width: number             // 0 = keep source width
+  colors: number            // palette size, 32–256
+  dither: 'none' | 'bayer' | 'sierra2_4a'
+  loop: boolean             // true = loop forever
+}
+
 interface AppSettings {
-  theme: 'light' | 'dark' | 'system'
   maxParallelJobs: number   // 1–8
   outputDir: string | null  // null = same dir as input
   nvidiaCapturesPath: string | null
+  startPage: StartPage      // '/hub' | '/' | '/compress' | '/jobs'
 }
+
+type ClipMark = 'clip' | 'gif' | null
 ```
 
 ---
@@ -118,6 +153,16 @@ interface AppSettings {
 | `settings:set` | invoke | Partial update → new settings |
 | `dialog:openFile` | invoke | File picker → `{path, name, size}` |
 | `dialog:openDir` | invoke | Directory picker → string |
+| `clipmarks:get` | invoke | `string[]` → `Record<path, ClipMark>` |
+| `covers:get` | invoke | Cover image path for a game, or null |
+| `covers:hasCustom` | invoke | Whether a user-supplied cover is set |
+| `covers:setCustom` | invoke | Normalise an image file into the custom cover |
+| `covers:setCustomFromClipboard` | invoke | Same, from the clipboard image |
+| `covers:clearCustom` | invoke | Drop the custom cover, return the Steam one |
+| `covers:searchSteam` | invoke | Top 5 `SteamMatch[]` for a search term |
+| `covers:setSteamId` | invoke | Pin a game folder to a Steam appId |
+| `dialog:openImage` | invoke | Image picker → path |
+| `gif:preview` | invoke | Render one GIF-palette frame → PNG path |
 | `shell:showInFolder` | send | Reveal in Explorer |
 | `shell:openPath` | send | Open with system default |
 | `fs:listDir` | invoke | List video files in dir |
@@ -131,7 +176,6 @@ interface AppSettings {
 | `thumbnails:cacheDir` | invoke | Cache directory path |
 | `frames:get` | invoke | Generate timeline frames → paths[] |
 | `probe:audioTracks` | invoke | Audio stream count → number |
-| `covers:get` | invoke | Steam cover URL by game name |
 | `media:port` | invoke | Media server port number |
 | `window:minimize/maximize/close` | send | Window controls |
 | `window:isMaximized` | invoke | boolean |

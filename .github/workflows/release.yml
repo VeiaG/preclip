@@ -1,0 +1,68 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+# electron-builder uploads the installer to the release that triggered this run.
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    name: Windows installer
+    runs-on: windows-latest
+
+    env:
+      # Only takes effect once the .npmrc lines below are gone — see that step.
+      ELECTRON_MIRROR: https://github.com/electron/electron/releases/download/
+      ELECTRON_BUILDER_BINARIES_MIRROR: https://github.com/electron-userland/electron-builder-binaries/releases/download/
+
+    steps:
+      - name: Check out the tag
+        uses: actions/checkout@v4
+
+      # .npmrc pins the Electron binaries to npmmirror.com, which is slow or
+      # unreachable from GitHub runners. It cannot be overridden by the
+      # environment: @electron/get checks npm_config_electron_mirror (which npm
+      # config exports from .npmrc) *before* ELECTRON_MIRROR, so the pin always
+      # wins. Dropping the lines from the runner's copy lets the env vars above
+      # apply; the committed .npmrc is untouched.
+      - name: Use the official binary mirrors
+        shell: bash
+        run: |
+          grep -vE '^electron(_builder_binaries)?_mirror=' .npmrc > .npmrc.ci
+          mv .npmrc.ci .npmrc
+          cat .npmrc
+
+      # Reads the pnpm version from package.json's packageManager field.
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # electron-builder names artifacts from package.json, not from the tag, so
+      # a mismatch would silently attach preclip-1.0.0-setup.exe to release
+      # v1.1.0 and give electron-updater the wrong version to compare against.
+      - name: Check the tag matches package.json
+        shell: bash
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg="$(node -p "require('./package.json').version")"
+          if [ "$tag" != "$pkg" ]; then
+            echo "::error::Release tag $GITHUB_REF_NAME does not match package.json version $pkg. Bump the version, commit, and re-tag."
+            exit 1
+          fi
+          echo "Version $pkg matches tag $GITHUB_REF_NAME."
+
+      - name: Build and attach the installer
+        run: pnpm release:win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

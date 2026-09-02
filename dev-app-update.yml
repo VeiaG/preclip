@@ -1,3 +1,4 @@
-provider: generic
-url: https://example.com/auto-updates
-updaterCacheDirName: video-converter-updater
+owner: VeiaG
+repo: preclip
+provider: github
+updaterCacheDirName: preclip-updater

@@ -19,8 +19,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { cn, formatSize } from '@/lib/utils'
+import { cn, formatSize, isImageFile } from '@/lib/utils'
 import { getGameGradient, getGameInitials } from '@/lib/gameCovers'
+import { CoverDialog } from '@/components/CoverDialog'
 import type { AppSettings } from '../../../shared/types'
 
 interface GameFolder {
@@ -38,41 +39,63 @@ type SortKey = 'recent' | 'name' | 'size'
 function GameCard({
   game,
   mediaPort,
+  coverNonce,
   selected,
   selectionMode,
   onClick,
   onSelect,
   onOpenFolder,
+  onCoverDropped,
 }: {
   game: GameFolder
   mediaPort: number
+  coverNonce: number
   selected: boolean
   selectionMode: boolean
   onClick: (e: React.MouseEvent) => void
   onSelect: () => void
   onOpenFolder: () => void
+  onCoverDropped: (file: File) => void
 }) {
   const [coverUrl, setCoverUrl] = useState<string | null>(null)
+  const [dragging, setDragging] = useState(false)
   const [from, to] = getGameGradient(game.name)
   const initials = getGameInitials(game.name)
 
   useEffect(() => {
     if (!mediaPort) return
     window.api.getGameCover(game.name).then((imgPath) => {
-      if (imgPath) {
-        setCoverUrl(`http://127.0.0.1:${mediaPort}/${encodeURIComponent(imgPath)}`)
-      }
+      // The path stays the same when the image behind it changes, so the nonce
+      // is what actually busts the renderer's image cache.
+      setCoverUrl(
+        imgPath
+          ? `http://127.0.0.1:${mediaPort}/${encodeURIComponent(imgPath)}?v=${coverNonce}`
+          : null,
+      )
     })
-  }, [game.name, mediaPort])
+  }, [game.name, mediaPort, coverNonce])
 
   return (
     <button
       onClick={onClick}
+      onDragOver={(e) => {
+        e.preventDefault()
+        setDragging(true)
+      }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={(e) => {
+        e.preventDefault()
+        setDragging(false)
+        const file = e.dataTransfer.files[0]
+        if (file && isImageFile(file)) onCoverDropped(file)
+      }}
       className={cn(
         'group w-full text-left rounded-xl overflow-hidden border bg-card transition-all duration-200 hover:shadow-lg hover:shadow-black/10 relative',
-        selected
+        dragging
           ? 'ring-2 ring-primary border-primary'
-          : 'hover:ring-2 ring-primary/40 hover:border-primary/40',
+          : selected
+            ? 'ring-2 ring-primary border-primary'
+            : 'hover:ring-2 ring-primary/40 hover:border-primary/40',
       )}
     >
       {/* Cover area */}
@@ -94,6 +117,12 @@ function GameCard({
             className="absolute inset-0 w-full h-full object-cover object-top"
             onError={() => setCoverUrl(null)}
           />
+        )}
+
+        {dragging && (
+          <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 text-xs font-medium text-white">
+            Drop image to set cover
+          </div>
         )}
 
         {/* Selection checkbox (top-right) — only visible in selection mode */}
@@ -158,11 +187,27 @@ export default function Hub() {
   const [mediaPort, setMediaPort] = useState(0)
   const [sort, setSort] = useState<SortKey>('recent')
 
+  // Covers
+  const [coverNonce, setCoverNonce] = useState<Record<string, number>>({})
+  const [coverTarget, setCoverTarget] = useState<string | null>(null)
+
   // Selection
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [deleteTarget, setDeleteTarget] = useState<GameFolder[] | null>(null)
 
   const selectionMode = selected.size > 0
+
+  const bumpCover = useCallback((name: string) => {
+    setCoverNonce((prev) => ({ ...prev, [name]: (prev[name] ?? 0) + 1 }))
+  }, [])
+
+  const handleCoverDropped = useCallback(
+    async (game: GameFolder, file: File) => {
+      const saved = await window.api.setCustomCover(game.name, window.api.getPathForFile(file))
+      if (saved) bumpCover(game.name)
+    },
+    [bumpCover],
+  )
 
   useEffect(() => {
     window.api.mediaPort().then(setMediaPort)
@@ -364,16 +409,21 @@ export default function Hub() {
                     <GameCard
                         game={game}
                         mediaPort={mediaPort}
+                        coverNonce={coverNonce[game.name] ?? 0}
                         selected={selected.has(game.fullPath)}
                         selectionMode={selectionMode}
                         onClick={(e) => handleCardClick(game, e)}
                         onSelect={() => toggleSelect(game.fullPath)}
                         onOpenFolder={() => window.api.showInFolder(game.fullPath)}
+                        onCoverDropped={(file) => handleCoverDropped(game, file)}
                       />
                   </ContextMenuTrigger>
                   <ContextMenuContent>
                     <ContextMenuItem onClick={() => navigate('/hub/folder', { state: { game } })}>
                       Open
+                    </ContextMenuItem>
+                    <ContextMenuItem onClick={() => setCoverTarget(game.name)}>
+                      Change cover…
                     </ContextMenuItem>
                     <ContextMenuItem onClick={() => toggleSelect(game.fullPath)}>
                       {selected.has(game.fullPath) ? 'Deselect' : 'Select'}
@@ -421,6 +471,13 @@ export default function Hub() {
           </Button>
         </div>
       )}
+
+      <CoverDialog
+        gameName={coverTarget}
+        mediaPort={mediaPort}
+        onClose={() => setCoverTarget(null)}
+        onCoverChanged={bumpCover}
+      />
 
       {/* Delete confirmation */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
