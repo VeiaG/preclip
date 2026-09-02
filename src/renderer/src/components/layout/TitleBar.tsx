@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Film, Minus, Maximize2, Minimize2, X, PanelLeft } from 'lucide-react'
+import { Minus, Maximize2, Minimize2, X, PanelLeft } from 'lucide-react'
 
 interface TitleBarProps {
   sidebarOpen: boolean
