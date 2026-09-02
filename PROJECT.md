@@ -84,6 +84,14 @@ Reads/writes `AppSettings` to `userData/settings.json`.
 
 ---
 
+## Release (`.github/workflows/release.yml`)
+
+Publishing a GitHub release triggers a `windows-latest` build that attaches the installer, blockmap and `latest.yml` through electron-builder's `provider: github`.
+
+Two things the workflow has to work around: the tag is checked against `package.json` because electron-builder names artifacts from the latter, and `.npmrc`'s npmmirror pins are stripped from the runner's copy because `@electron/get` reads `npm_config_electron_mirror` ahead of `ELECTRON_MIRROR`, so the environment alone cannot override them.
+
+---
+
 ## Shared types (`src/shared/types.ts`)
 
 ```ts

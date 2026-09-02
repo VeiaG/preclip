@@ -39,6 +39,9 @@ const api = {
     return () => ipcRenderer.removeListener('jobs:removed', listener)
   },
 
+  // App
+  getAppVersion: (): Promise<string> => ipcRenderer.invoke('app:getVersion'),
+
   // Settings
   getSettings: (): Promise<AppSettings> => ipcRenderer.invoke('settings:get'),
   setSettings: (partial: Partial<AppSettings>): Promise<AppSettings> =>

@@ -184,6 +184,9 @@ app.whenReady().then(() => {
   ipcMain.on('jobs:clearFinished', () => clearFinishedJobs(mainWindow))
   ipcMain.handle('jobs:getAll', () => getAllJobs())
 
+  // App
+  ipcMain.handle('app:getVersion', () => app.getVersion())
+
   // Settings
   ipcMain.handle('settings:get', () => getSettings())
   ipcMain.handle('settings:set', (_, partial) => setSettings(partial))

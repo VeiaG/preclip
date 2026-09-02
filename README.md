@@ -85,6 +85,25 @@ pnpm build:linux
 Installers land in `dist/`. Use `pnpm build:unpack` for an unpacked build in
 `dist/win-unpacked/` when you want to check packaging without producing an installer.
 
+## Cutting a release
+
+Publishing a GitHub release builds the Windows installer and attaches it, via
+`.github/workflows/release.yml`.
+
+1. Bump `version` in `package.json` and commit it.
+2. Tag that commit and push the tag: `git tag v1.1.0 && git push origin v1.1.0`.
+3. Publish a GitHub release for the tag (`gh release create v1.1.0 --generate-notes`).
+
+The workflow checks the tag against `package.json` first and fails if they differ —
+electron-builder names artifacts from `package.json`, not from the tag, so a mismatch
+would otherwise attach `preclip-1.0.0-setup.exe` to release `v1.1.0`.
+
+It uploads the installer, its blockmap and `latest.yml`. Nothing reads `latest.yml`
+yet: `electron-updater` is a dependency but no auto-update is wired up in the main
+process. The publishing side is ready for whenever it is.
+
+Builds are unsigned, so Windows SmartScreen warns on first run.
+
 ## First run
 
 Open **Settings** and set the **NVIDIA captures folder** to the directory holding your

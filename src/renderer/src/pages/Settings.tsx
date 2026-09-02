@@ -23,6 +23,7 @@ export default function Settings() {
   const [settings, setSettingsState] = useState<AppSettings | null>(null)
   const [cacheSize, setCacheSize] = useState<number>(0)
   const [cacheDir, setCacheDir] = useState<string>('')
+  const [appVersion, setAppVersion] = useState<string>('—')
   const [clearing, setClearing] = useState(false)
 
   const refreshCacheSize = useCallback(() => {
@@ -33,6 +34,7 @@ export default function Settings() {
     window.api.getSettings().then(setSettingsState)
     refreshCacheSize()
     window.api.getThumbnailCacheDir().then(setCacheDir)
+    window.api.getAppVersion().then(setAppVersion)
   }, [refreshCacheSize])
 
   const save = async (partial: Partial<AppSettings>) => {
@@ -220,7 +222,7 @@ export default function Settings() {
         <div className="border rounded-xl px-4 py-3 space-y-1">
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Version</span>
-            <span>0.0.1</span>
+            <span>{appVersion}</span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Electron</span>

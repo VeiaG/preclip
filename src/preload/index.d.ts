@@ -16,6 +16,8 @@ interface VideoKitAPI {
   onJobUpdated: (callback: (job: Job) => void) => () => void
   onJobRemoved: (callback: (id: string) => void) => () => void
 
+  getAppVersion: () => Promise<string>
+
   getSettings: () => Promise<AppSettings>
   setSettings: (partial: Partial<AppSettings>) => Promise<AppSettings>
 
