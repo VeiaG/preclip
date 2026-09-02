@@ -66,3 +66,21 @@ jobs:
         run: pnpm release:win
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # electron-builder exits 0 even when it decides to skip every upload, so a
+      # green run is not evidence the release actually got the files. Ask GitHub
+      # what is attached instead of trusting the exit code.
+      - name: Verify the artifacts were attached
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          attached="$(gh release view "$GITHUB_REF_NAME" --json assets -q '.assets[].name')"
+          echo "Attached to $GITHUB_REF_NAME:"
+          echo "$attached"
+          for want in "preclip-${GITHUB_REF_NAME#v}-setup.exe" latest.yml; do
+            if ! echo "$attached" | grep -qx "$want"; then
+              echo "::error::$want is missing from the release — the build succeeded but publishing did not."
+              exit 1
+            fi
+          done
