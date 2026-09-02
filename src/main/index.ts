@@ -9,7 +9,17 @@ import { addJob, cancelJob, removeJob, clearFinishedJobs, getAllJobs, getRunning
 import { getSettings, setSettings } from './settings'
 import { generateThumbnail, clearThumbnailCache, getThumbnailCacheSize, getThumbnailCacheDir } from './thumbnails'
 import { generateFrames, clearFramesCache, probeAudioTracks } from './frames'
-import { getGameCover } from './covers'
+import {
+  getGameCover,
+  searchSteamCovers,
+  setSteamAppId,
+  setCustomCover,
+  setCustomCoverFromClipboard,
+  clearCustomCover,
+  hasCustomCover,
+} from './covers'
+import { getMarks } from './clipmarks'
+import { generateGifPreview, clearGifPreviewCache } from './gif'
 
 const MEDIA_MIME: Record<string, string> = {
   '.mp4': 'video/mp4',
@@ -18,6 +28,10 @@ const MEDIA_MIME: Record<string, string> = {
   '.mkv': 'video/x-matroska',
   '.webm': 'video/webm',
   '.wmv': 'video/x-ms-wmv',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.gif': 'image/gif',
 }
 
 // Local HTTP media server — avoids all Electron protocol.handle quirks.
@@ -36,7 +50,9 @@ const mediaServer = http.createServer((req, res) => {
     return
   }
 
-  const filePath = decodeURIComponent(req.url.slice(1))
+  // Strip the query first — cover URLs carry a ?v= cache-buster, and leaving it
+  // on would make it part of the filename.
+  const filePath = decodeURIComponent(req.url.slice(1).split('?')[0])
   const contentType = MEDIA_MIME[path.extname(filePath).toLowerCase()] ?? 'video/mp4'
 
   let stat: fs.Stats
@@ -103,17 +119,8 @@ function createWindow(): BrowserWindow {
     autoHideMenuBar: true,
     minWidth: 600,
     minHeight: 480,
-    backgroundColor:"#00000000",
-    // Required properties for transparency effects
-    transparent: true,
+    backgroundColor: '#0a0a0a',
     frame: false,
-
-    // macOS Native Blur Effect
-    vibrancy: 'fullscreen-ui',
-
-    // Windows 11 Native Blur Effect
-    backgroundMaterial: 'acrylic',
-    // backgroundMaterial:'mica',
     icon,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -192,6 +199,15 @@ app.whenReady().then(() => {
     return { path: filePath, name: path.basename(filePath), size: fs.statSync(filePath).size }
   })
 
+  ipcMain.handle('dialog:openImage', async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      properties: ['openFile'],
+      filters: [{ name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'gif', 'avif'] }],
+    })
+    if (result.canceled || result.filePaths.length === 0) return null
+    return result.filePaths[0]
+  })
+
   ipcMain.handle('dialog:openDir', async () => {
     const result = await dialog.showOpenDialog(mainWindow, { properties: ['openDirectory'] })
     if (result.canceled || result.filePaths.length === 0) return null
@@ -241,7 +257,8 @@ app.whenReady().then(() => {
   })
 
   ipcMain.handle('fs:listVideos', (_, dirPath: string) => {
-    const videoExts = new Set(['.mp4', '.mov', '.avi', '.mkv', '.webm', '.wmv'])
+    // .gif is listed too — GIFs we produce live alongside the captures.
+    const videoExts = new Set(['.mp4', '.mov', '.avi', '.mkv', '.webm', '.wmv', '.gif'])
     return fs.readdirSync(dirPath)
       .filter(f => videoExts.has(path.extname(f).toLowerCase()))
       .map(f => {
@@ -252,8 +269,23 @@ app.whenReady().then(() => {
       .sort((a, b) => b.modifiedAt - a.modifiedAt)
   })
 
-  // Game covers (Steam art)
+  // Game covers (Steam art + user overrides)
   ipcMain.handle('covers:get', (_, gameName: string) => getGameCover(gameName))
+  ipcMain.handle('covers:hasCustom', (_, gameName: string) => hasCustomCover(gameName))
+  ipcMain.handle('covers:setCustom', (_, gameName: string, sourcePath: string) =>
+    setCustomCover(gameName, sourcePath),
+  )
+  ipcMain.handle('covers:setCustomFromClipboard', (_, gameName: string) =>
+    setCustomCoverFromClipboard(gameName),
+  )
+  ipcMain.handle('covers:clearCustom', async (_, gameName: string) => {
+    clearCustomCover(gameName)
+    return getGameCover(gameName)
+  })
+  ipcMain.handle('covers:searchSteam', (_, term: string) => searchSteamCovers(term))
+  ipcMain.handle('covers:setSteamId', (_, gameName: string, appId: number) =>
+    setSteamAppId(gameName, appId),
+  )
 
   // Thumbnails
   ipcMain.handle('thumbnails:get', async (_, videoPath: string) => {
@@ -271,6 +303,20 @@ app.whenReady().then(() => {
   ipcMain.handle('probe:audioTracks', async (_, videoPath: string) => {
     try { return await probeAudioTracks(videoPath) } catch { return 1 }
   })
+
+  // Clip marks — which files in a folder were produced by PreClip
+  ipcMain.handle('clipmarks:get', async (_, filePaths: string[]) => {
+    try { return await getMarks(filePaths) } catch { return {} }
+  })
+
+  // GIF single-frame preview (ephemeral, like timeline frames)
+  clearGifPreviewCache()
+  ipcMain.handle(
+    'gif:preview',
+    async (_, videoPath: string, timeSec: number, opts: { width: number; colors: number; dither: 'none' | 'bayer' | 'sierra2_4a' }) => {
+      try { return await generateGifPreview(videoPath, timeSec, opts) } catch { return null }
+    },
+  )
 
   // Delete folder (recursive)
   ipcMain.handle('fs:deleteFolder', (_, folderPath: string) => {

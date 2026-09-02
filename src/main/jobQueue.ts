@@ -1,7 +1,9 @@
 import type { BrowserWindow } from 'electron'
 import fs from 'fs'
-import type { Job, JobType, JobStatus, JobMetadata, CompressMetadata } from '../shared/types'
+import type { Job, JobType, JobStatus, JobMetadata, CompressMetadata, GifMetadata } from '../shared/types'
 import { runCompress, buildOutputPath } from './compress'
+import { runGif } from './gif'
+import { markOutput } from './clipmarks'
 import { getSettings } from './settings'
 import type ffmpeg from 'fluent-ffmpeg'
 
@@ -26,6 +28,14 @@ function getOutputFormat(type: JobType, metadata: JobMetadata): string {
   return 'gif'
 }
 
+/** GIFs are already unmistakable by extension, so they keep the source name. */
+function getOutputSuffix(type: JobType, metadata: JobMetadata): string {
+  if (type !== 'compress') return ''
+  const meta = metadata as CompressMetadata
+  const hasTrim = meta.trimStart !== undefined || meta.trimEnd !== undefined
+  return hasTrim ? 'clip' : 'compressed'
+}
+
 function maybeStartNext(win: BrowserWindow): void {
   const { maxParallelJobs } = getSettings()
   while (runningCount < maxParallelJobs) {
@@ -48,9 +58,21 @@ async function startJob(win: BrowserWindow, job: Job): Promise<void> {
         (percent) => updateJob(win, job.id, { progress: percent }),
         (cmd) => activeCommands.set(job.id, cmd),
       )
-      const outputSize = fs.statSync(job.outputPath).size
-      updateJob(win, job.id, { status: 'done', progress: 100, outputSize, completedAt: Date.now() })
+    } else {
+      await runGif(
+        job.inputPath,
+        job.outputPath,
+        job.metadata as GifMetadata,
+        (percent) => updateJob(win, job.id, { progress: percent }),
+        (cmd) => activeCommands.set(job.id, cmd),
+      )
     }
+    // A GIF runs as two ffmpeg passes, so a cancel can land between them and
+    // leave the second one running. Don't report a cancelled job as done.
+    if (jobs.get(job.id)?.status === 'cancelled') return
+    markOutput(job.outputPath, job.type === 'gif' ? 'gif' : 'clip')
+    const outputSize = fs.statSync(job.outputPath).size
+    updateJob(win, job.id, { status: 'done', progress: 100, outputSize, completedAt: Date.now() })
   } catch (err) {
     const currentStatus = jobs.get(job.id)?.status
     if (currentStatus !== 'cancelled') {
@@ -72,10 +94,12 @@ export function addJob(
   opts: { type: JobType; inputPath: string; inputSize: number; name: string; metadata: JobMetadata },
 ): Job {
   const settings = getSettings()
-  const format = getOutputFormat(opts.type, opts.metadata)
-  const meta = opts.metadata as CompressMetadata
-  const hasTrim = meta.trimStart !== undefined || meta.trimEnd !== undefined
-  const outputPath = buildOutputPath(opts.inputPath, format, settings.outputDir, hasTrim ? 'clip' : 'compressed')
+  const outputPath = buildOutputPath(
+    opts.inputPath,
+    getOutputFormat(opts.type, opts.metadata),
+    settings.outputDir,
+    getOutputSuffix(opts.type, opts.metadata),
+  )
 
   const job: Job = {
     id: crypto.randomUUID(),

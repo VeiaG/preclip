@@ -1,34 +1,105 @@
-# video-converter
+# PreClip
 
-An Electron application with React and TypeScript
+A desktop video clip manager and converter for gameplay captures. Point it at your
+NVIDIA captures folder and it turns a pile of `.mp4` files into a browsable library
+you can trim, compress and convert without leaving the app.
 
-## Recommended IDE Setup
+Built with Electron, React and a bundled FFmpeg — nothing to install separately.
 
-- [VSCode](https://code.visualstudio.com/) + [ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint) + [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode)
+## Features
 
-## Project Setup
+**Game Library** — reads your captures folder, groups recordings by game with Steam
+cover art, and shows every clip as a thumbnail grid with sorting, multi-select and
+delete.
+
+**Cover art you control** — covers come from Steam automatically, and when the match
+is wrong or missing you can drop an image straight onto a game card, pick a file,
+paste from the clipboard, or search Steam again under a different name and choose the
+right game from the results. Whatever you supply is re-encoded to the grid's capsule
+format, so it fills the card without stretching.
+
+**Clip badges** — files PreClip produced are stamped with a `comment=PreClip`
+metadata tag at encode time, so they carry a `CLIP` or `GIF` badge in the library and
+stay recognisable even after you rename or move them. A `Show: All / Originals /
+Clips` filter hides one or the other. Files made before this existed are still
+detected by their `_clip` / `_compressed` suffix.
+
+**Trim & compress** — a frame-strip timeline for setting in/out points, quality and
+resolution presets with live size estimates, output as MP4, WebM or MOV. Multi-track
+captures (game audio + mic) can be merged into one track.
+
+**GIF converter** — frame rate, width, palette size, dither and loop mode, with a
+single-frame preview rendered through the same palette pipeline as the final GIF, so
+what you see is the real colour banding rather than a clean video frame.
+
+**Job queue** — conversions run in the background with live progress, cancellation
+and a configurable number of parallel jobs.
+
+## Stack
+
+| Layer | Technology |
+|---|---|
+| Runtime | Electron 39 |
+| Build | electron-vite 5, Vite 7 |
+| UI | React 19, TypeScript 5, Tailwind CSS v4, shadcn/ui |
+| Media | `ffmpeg-static` + `ffprobe-static` + `fluent-ffmpeg` |
+| Packaging | electron-builder |
+
+See [Project.md](Project.md) for the architecture reference — module responsibilities,
+shared types and the full IPC channel list.
+
+## Project setup
 
 ### Install
 
 ```bash
-$ pnpm install
+pnpm install
 ```
 
 ### Development
 
 ```bash
-$ pnpm dev
+pnpm dev
+```
+
+### Type checking and linting
+
+```bash
+pnpm typecheck
+pnpm lint
 ```
 
 ### Build
 
 ```bash
-# For windows
-$ pnpm build:win
+# Windows
+pnpm build:win
 
-# For macOS
-$ pnpm build:mac
+# macOS
+pnpm build:mac
 
-# For Linux
-$ pnpm build:linux
+# Linux
+pnpm build:linux
 ```
+
+Installers land in `dist/`. Use `pnpm build:unpack` for an unpacked build in
+`dist/win-unpacked/` when you want to check packaging without producing an installer.
+
+## First run
+
+Open **Settings** and set the **NVIDIA captures folder** to the directory holding your
+per-game recording subfolders. Until that is set, the Game Library has nothing to show.
+
+Two other settings worth knowing:
+
+- **Start page** — which screen the app opens on. Defaults to Game Library.
+- **Output folder** — where converted files go. Defaults to the source file's own folder.
+
+## Application icons
+
+The icon source of truth is `resources/icon.png` (512×512), which is also what the dev
+window uses at runtime. electron-builder packages the icons from `build/` instead:
+`icon.ico` for Windows, `icon.icns` for macOS, `icon.png` for Linux.
+
+**Changing the icon means regenerating all three** — editing only `resources/icon.png`
+updates the dev window while installed builds keep shipping the old art.

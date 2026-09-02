@@ -21,6 +21,8 @@ import {
 } from '@/components/ui/alert-dialog'
 import { cn, formatSize } from '@/lib/utils'
 import { getGameGradient, getGameInitials } from '@/lib/gameCovers'
+import { guessMarkFromName } from '../../../shared/clipmark'
+import type { ClipMark } from '../../../shared/types'
 
 interface GameInfo {
   name: string
@@ -37,6 +39,7 @@ interface VideoFile {
 }
 
 type SortKey = 'date' | 'name' | 'size'
+type FilterKey = 'all' | 'originals' | 'clips'
 
 function formatDate(ts: number) {
   return new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
@@ -44,8 +47,28 @@ function formatDate(ts: number) {
 
 // ── Thumbnail card ────────────────────────────────────────────────────────────
 
+function isGif(video: VideoFile): boolean {
+  return video.name.toLowerCase().endsWith('.gif')
+}
+
+function MarkBadge({ mark }: { mark: Exclude<ClipMark, null> }) {
+  return (
+    <span
+      className={cn(
+        'absolute top-2 left-2 z-10 px-1.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide shadow-sm',
+        mark === 'gif'
+          ? 'bg-black/70 text-white backdrop-blur-sm'
+          : 'bg-primary text-primary-foreground',
+      )}
+    >
+      {mark === 'gif' ? 'GIF' : 'Clip'}
+    </span>
+  )
+}
+
 function VideoCard({
   video,
+  mark,
   mediaPort,
   selected,
   selectionMode,
@@ -53,17 +76,27 @@ function VideoCard({
   onSelect,
 }: {
   video: VideoFile
+  mark: ClipMark
   mediaPort: number
   selected: boolean
   selectionMode: boolean
   onClick: (e: React.MouseEvent) => void
   onSelect: () => void
 }) {
-  const [thumbUrl, setThumbUrl] = useState<string | null>(null)
-  const [thumbLoading, setThumbLoading] = useState(true)
+  const gif = isGif(video)
+  // A GIF is its own best thumbnail — no point running ffmpeg over it.
+  const gifUrl =
+    gif && mediaPort ? `http://127.0.0.1:${mediaPort}/${encodeURIComponent(video.fullPath)}` : null
+
+  const [thumbUrl, setThumbUrl] = useState<string | null>(gifUrl)
+  const [thumbLoading, setThumbLoading] = useState(!gif)
   const requested = useRef(false)
 
   useEffect(() => {
+    if (gif) {
+      setThumbUrl(gifUrl)
+      return
+    }
     if (requested.current || !mediaPort) return
     requested.current = true
 
@@ -73,7 +106,7 @@ function VideoCard({
       }
       setThumbLoading(false)
     })
-  }, [video.fullPath, mediaPort])
+  }, [video.fullPath, mediaPort, gif, gifUrl])
 
   return (
     <button
@@ -102,6 +135,8 @@ function VideoCard({
           </div>
         )}
 
+        {mark && <MarkBadge mark={mark} />}
+
         {/* Selection checkbox — only visible in selection mode */}
         {selectionMode && (
         <div
@@ -125,8 +160,14 @@ function VideoCard({
         {!selectionMode && (
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors flex items-center justify-center">
             <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5 bg-white/10 backdrop-blur-sm rounded-lg px-3 py-1.5">
-              <Scissors className="w-3.5 h-3.5 text-white" />
-              <span className="text-white text-xs font-medium">Edit & Trim</span>
+              {gif ? (
+                <span className="text-white text-xs font-medium">Open</span>
+              ) : (
+                <>
+                  <Scissors className="w-3.5 h-3.5 text-white" />
+                  <span className="text-white text-xs font-medium">Edit & Trim</span>
+                </>
+              )}
             </div>
           </div>
         )}
@@ -165,9 +206,11 @@ export default function GameFolder() {
   const game = (location.state as { game?: GameInfo } | null)?.game ?? null
 
   const [videos, setVideos] = useState<VideoFile[]>([])
+  const [marks, setMarks] = useState<Record<string, ClipMark>>({})
   const [loading, setLoading] = useState(true)
   const [mediaPort, setMediaPort] = useState(0)
   const [sort, setSort] = useState<SortKey>('date')
+  const [filter, setFilter] = useState<FilterKey>('all')
 
   // Selection
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -183,12 +226,27 @@ export default function GameFolder() {
     if (!game) return
     setLoading(true)
     setSelected(new Set())
+    setMarks({})
     window.api
       .listVideos(game.fullPath)
-      .then(setVideos)
+      .then((list) => {
+        setVideos(list)
+        // Reading metadata takes a moment; until it lands, the filename
+        // heuristic in markOf keeps badges on screen.
+        window.api
+          .getClipMarks(list.map((v) => v.fullPath))
+          .then(setMarks)
+          .catch(() => {})
+      })
       .catch(() => setVideos([]))
       .finally(() => setLoading(false))
   }, [game?.fullPath])
+
+  const markOf = useCallback(
+    (video: VideoFile): ClipMark =>
+      video.fullPath in marks ? marks[video.fullPath] : guessMarkFromName(video.name),
+    [marks],
+  )
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -214,17 +272,29 @@ export default function GameFolder() {
     })
   }, [])
 
+  const openVideo = useCallback(
+    (video: VideoFile) => {
+      // GIFs can't be trimmed here — hand them to the system viewer instead.
+      if (isGif(video)) {
+        window.api.openPath(video.fullPath)
+        return
+      }
+      navigate('/editor', {
+        state: { file: { path: video.fullPath, name: video.name, size: video.size } },
+      })
+    },
+    [navigate],
+  )
+
   const handleCardClick = useCallback(
     (video: VideoFile, e: React.MouseEvent) => {
       if (e.ctrlKey || e.metaKey || selectionMode) {
         toggleSelect(video.fullPath)
       } else {
-        navigate('/editor', {
-          state: { file: { path: video.fullPath, name: video.name, size: video.size } },
-        })
+        openVideo(video)
       }
     },
-    [selectionMode, toggleSelect, navigate],
+    [selectionMode, toggleSelect, openVideo],
   )
 
   const confirmDelete = async () => {
@@ -253,11 +323,19 @@ export default function GameFolder() {
   const [from, to] = getGameGradient(game.name)
   const initials = getGameInitials(game.name)
 
-  const sorted = [...videos].sort((a, b) => {
-    if (sort === 'date') return b.modifiedAt - a.modifiedAt
-    if (sort === 'name') return a.name.localeCompare(b.name)
-    return b.size - a.size
-  })
+  const clipCount = videos.filter((v) => markOf(v) !== null).length
+
+  const sorted = videos
+    .filter((v) => {
+      if (filter === 'clips') return markOf(v) !== null
+      if (filter === 'originals') return markOf(v) === null
+      return true
+    })
+    .sort((a, b) => {
+      if (sort === 'date') return b.modifiedAt - a.modifiedAt
+      if (sort === 'name') return a.name.localeCompare(b.name)
+      return b.size - a.size
+    })
 
   const totalSize = videos.reduce((s, v) => s + v.size, 0)
 
@@ -265,6 +343,12 @@ export default function GameFolder() {
     { key: 'date', label: 'Recent' },
     { key: 'name', label: 'Name' },
     { key: 'size', label: 'Size' },
+  ]
+
+  const FILTERS: { key: FilterKey; label: string; count: number }[] = [
+    { key: 'all', label: 'All', count: videos.length },
+    { key: 'originals', label: 'Originals', count: videos.length - clipCount },
+    { key: 'clips', label: 'Clips', count: clipCount },
   ]
 
   return (
@@ -304,9 +388,9 @@ export default function GameFolder() {
         </Button>
       </div>
 
-      {/* Sort bar */}
+      {/* Sort + filter bar */}
       {!loading && videos.length > 0 && (
-        <div className="px-5 py-2 border-b flex items-center gap-2 shrink-0">
+        <div className="px-5 py-2 border-b flex items-center gap-2 shrink-0 flex-wrap">
           <SortAsc className="w-3.5 h-3.5 text-muted-foreground" />
           <span className="text-xs text-muted-foreground mr-1">Sort:</span>
           {SORTS.map(({ key, label }) => (
@@ -321,6 +405,24 @@ export default function GameFolder() {
               )}
             >
               {label}
+            </button>
+          ))}
+
+          <span className="w-px h-4 bg-border mx-1" />
+
+          <span className="text-xs text-muted-foreground mr-1">Show:</span>
+          {FILTERS.map(({ key, label, count }) => (
+            <button
+              key={key}
+              onClick={() => setFilter(key)}
+              className={cn(
+                'text-xs px-2 py-0.5 rounded-md transition-colors',
+                filter === key
+                  ? 'bg-primary text-primary-foreground font-medium'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted',
+              )}
+            >
+              {label} <span className="tabular-nums opacity-70">{count}</span>
             </button>
           ))}
         </div>
@@ -343,7 +445,9 @@ export default function GameFolder() {
         ) : sorted.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
             <FileVideo className="w-10 h-10 text-muted-foreground/40" />
-            <p className="text-sm text-muted-foreground">No videos found</p>
+            <p className="text-sm text-muted-foreground">
+              {videos.length === 0 ? 'No videos found' : 'Nothing matches this filter'}
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 pb-20">
@@ -352,6 +456,7 @@ export default function GameFolder() {
                 <ContextMenuTrigger className="block">
                   <VideoCard
                     video={video}
+                    mark={markOf(video)}
                     mediaPort={mediaPort}
                     selected={selected.has(video.fullPath)}
                     selectionMode={selectionMode}
@@ -360,15 +465,26 @@ export default function GameFolder() {
                   />
                 </ContextMenuTrigger>
                 <ContextMenuContent>
-                  <ContextMenuItem
-                    onClick={() =>
-                      navigate('/editor', {
-                        state: { file: { path: video.fullPath, name: video.name, size: video.size } },
-                      })
-                    }
-                  >
-                    Edit & Trim
-                  </ContextMenuItem>
+                  {isGif(video) ? (
+                    <ContextMenuItem onClick={() => window.api.openPath(video.fullPath)}>
+                      Open
+                    </ContextMenuItem>
+                  ) : (
+                    <>
+                      <ContextMenuItem onClick={() => openVideo(video)}>
+                        Edit &amp; Trim
+                      </ContextMenuItem>
+                      <ContextMenuItem
+                        onClick={() =>
+                          navigate('/gif', {
+                            state: { file: { path: video.fullPath, name: video.name, size: video.size } },
+                          })
+                        }
+                      >
+                        Convert to GIF
+                      </ContextMenuItem>
+                    </>
+                  )}
                   <ContextMenuItem onClick={() => toggleSelect(video.fullPath)}>
                     {selected.has(video.fullPath) ? 'Deselect' : 'Select'}
                   </ContextMenuItem>

@@ -9,6 +9,7 @@ const defaults: AppSettings = {
   maxParallelJobs: 1,
   outputDir: null,
   nvidiaCapturesPath: null,
+  startPage: '/hub',
 }
 
 export function getSettings(): AppSettings {

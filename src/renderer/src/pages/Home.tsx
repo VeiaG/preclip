@@ -16,8 +16,8 @@ const tools = [
     description: 'Convert video clips into animated GIFs',
     icon: Clapperboard,
     to: '/gif',
-    available: false,
-    tag: 'Soon',
+    available: true,
+    tag: null,
   },
 ]
 

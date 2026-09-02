@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type { IpcRendererEvent } from 'electron'
-import type { Job, AppSettings, JobType, JobMetadata } from '../shared/types'
+import type { Job, AppSettings, JobType, JobMetadata, ClipMark, GifDither, SteamMatch } from '../shared/types'
 
 const api = {
   // Jobs
@@ -50,6 +50,8 @@ const api = {
 
   openDir: (): Promise<string | null> => ipcRenderer.invoke('dialog:openDir'),
 
+  openImageFile: (): Promise<string | null> => ipcRenderer.invoke('dialog:openImage'),
+
   getPathForFile: (file: File): string => webUtils.getPathForFile(file),
 
   showInFolder: (filePath: string): void => {
@@ -72,6 +74,18 @@ const api = {
   // Game covers
   getGameCover: (gameName: string): Promise<string | null> =>
     ipcRenderer.invoke('covers:get', gameName),
+  hasCustomCover: (gameName: string): Promise<boolean> =>
+    ipcRenderer.invoke('covers:hasCustom', gameName),
+  setCustomCover: (gameName: string, sourcePath: string): Promise<string | null> =>
+    ipcRenderer.invoke('covers:setCustom', gameName, sourcePath),
+  setCustomCoverFromClipboard: (gameName: string): Promise<string | null> =>
+    ipcRenderer.invoke('covers:setCustomFromClipboard', gameName),
+  clearCustomCover: (gameName: string): Promise<string | null> =>
+    ipcRenderer.invoke('covers:clearCustom', gameName),
+  searchSteamCovers: (term: string): Promise<SteamMatch[]> =>
+    ipcRenderer.invoke('covers:searchSteam', term),
+  setSteamAppId: (gameName: string, appId: number): Promise<string | null> =>
+    ipcRenderer.invoke('covers:setSteamId', gameName, appId),
 
   // Thumbnails
   getThumbnail: (videoPath: string): Promise<string | null> =>
@@ -86,6 +100,17 @@ const api = {
 
   probeAudioTracks: (videoPath: string): Promise<number> =>
     ipcRenderer.invoke('probe:audioTracks', videoPath),
+
+  // Clip marks
+  getClipMarks: (filePaths: string[]): Promise<Record<string, ClipMark>> =>
+    ipcRenderer.invoke('clipmarks:get', filePaths),
+
+  // GIF preview
+  getGifPreview: (
+    videoPath: string,
+    timeSec: number,
+    opts: { width: number; colors: number; dither: GifDither },
+  ): Promise<string | null> => ipcRenderer.invoke('gif:preview', videoPath, timeSec, opts),
 
   // Delete
   deleteFolder: (folderPath: string): Promise<void> => ipcRenderer.invoke('fs:deleteFolder', folderPath),

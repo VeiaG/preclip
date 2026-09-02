@@ -3,6 +3,7 @@ import ffmpegStatic from 'ffmpeg-static'
 import fs from 'fs'
 import path from 'path'
 import type { CompressMetadata } from '../shared/types'
+import { CLIP_TAG } from './clipmarks'
 
 if (ffmpegStatic) {
   ffmpeg.setFfmpegPath(ffmpegStatic.replace('app.asar', 'app.asar.unpacked'))
@@ -22,11 +23,12 @@ export function buildOutputPath(
   const dir = outputDir ?? path.dirname(inputPath)
   const ext = path.extname(inputPath)
   const base = path.basename(inputPath, ext)
-  const candidate = path.join(dir, `${base}_${suffix}.${format}`)
+  const stem = suffix ? `${base}_${suffix}` : base
+  const candidate = path.join(dir, `${stem}.${format}`)
   if (!fs.existsSync(candidate)) return candidate
   let counter = 2
   while (true) {
-    const next = path.join(dir, `${base}_${suffix}_${counter}.${format}`)
+    const next = path.join(dir, `${stem}_${counter}.${format}`)
     if (!fs.existsSync(next)) return next
     counter++
   }
@@ -88,6 +90,9 @@ export function runCompress(
 
     cmd
       .audioCodec(isVp9 ? 'libopus' : 'aac')
+      // Stamped so the library can tell our output from an original capture
+      // even after the file is renamed or moved.
+      .outputOptions(['-metadata', `comment=${CLIP_TAG}`])
       .output(outputPath)
       .on('progress', ({ percent }) => onProgress(Math.min(percent ?? 0, 99)))
       .on('end', () => resolve())

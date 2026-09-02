@@ -1,5 +1,5 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
-import type { Job, AppSettings, JobType, JobMetadata } from '../shared/types'
+import type { Job, AppSettings, JobType, JobMetadata, ClipMark, GifDither, SteamMatch } from '../shared/types'
 
 interface VideoKitAPI {
   addJob: (opts: {
@@ -21,6 +21,7 @@ interface VideoKitAPI {
 
   openVideoFile: () => Promise<{ path: string; name: string; size: number } | null>
   openDir: () => Promise<string | null>
+  openImageFile: () => Promise<string | null>
   getPathForFile: (file: File) => string
   showInFolder: (filePath: string) => void
   openPath: (p: string) => void
@@ -29,6 +30,12 @@ interface VideoKitAPI {
   listVideos: (dirPath: string) => Promise<{ name: string; fullPath: string; size: number; modifiedAt: number }[]>
 
   getGameCover: (gameName: string) => Promise<string | null>
+  hasCustomCover: (gameName: string) => Promise<boolean>
+  setCustomCover: (gameName: string, sourcePath: string) => Promise<string | null>
+  setCustomCoverFromClipboard: (gameName: string) => Promise<string | null>
+  clearCustomCover: (gameName: string) => Promise<string | null>
+  searchSteamCovers: (term: string) => Promise<SteamMatch[]>
+  setSteamAppId: (gameName: string, appId: number) => Promise<string | null>
 
   getThumbnail: (videoPath: string) => Promise<string | null>
   clearThumbnailCache: () => Promise<void>
@@ -37,6 +44,13 @@ interface VideoKitAPI {
 
   getFrames: (videoPath: string, count: number) => Promise<string[]>
   probeAudioTracks: (videoPath: string) => Promise<number>
+
+  getClipMarks: (filePaths: string[]) => Promise<Record<string, ClipMark>>
+  getGifPreview: (
+    videoPath: string,
+    timeSec: number,
+    opts: { width: number; colors: number; dither: GifDither },
+  ) => Promise<string | null>
 
   deleteFolder: (folderPath: string) => Promise<void>
   deleteFiles: (filePaths: string[]) => Promise<void>
