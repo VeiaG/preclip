@@ -1,5 +1,8 @@
 # PreClip
 
+<img width="900" height="670" alt="image" src="https://github.com/user-attachments/assets/4f2cd07b-897b-474e-9c94-0df9f19f902f" />
+
+
 A desktop video clip manager and converter for gameplay captures. Point it at your
 NVIDIA captures folder and it turns a pile of `.mp4` files into a browsable library
 you can trim, compress and convert without leaving the app.
@@ -34,6 +37,9 @@ what you see is the real colour banding rather than a clean video frame.
 
 **Job queue** — conversions run in the background with live progress, cancellation
 and a configurable number of parallel jobs.
+
+<img width="900" height="670" alt="image" src="https://github.com/user-attachments/assets/d20f2527-fc71-498b-a310-a0d6eaef80a5" />
+
 
 ## Stack
 
